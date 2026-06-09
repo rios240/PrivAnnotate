@@ -1,7 +1,7 @@
 {
-  "name": "apa",
-  "displayName": "APA",
-  "description": "Automatic Privacy Annotator",
+  "name": "pact",
+  "displayName": "PACT",
+  "description": "Privacy Annotation at Code-authoring Time",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.120.0"
@@ -14,7 +14,7 @@
   "contributes": {
     "commands": [
       {
-        "command": "apa.helloWorld",
+        "command": "pact.helloWorld",
         "title": "Hello World"
       }
     ]
