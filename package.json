@@ -1,7 +1,7 @@
 {
-  "name": "pact",
-  "displayName": "PACT",
-  "description": "Privacy Annotation at Code-authoring Time",
+  "name": "priv-audit",
+  "displayName": "PrivAudit",
+  "description": "Automatic Privacy Audit during Code Authoring",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.120.0"
@@ -14,8 +14,45 @@
   "contributes": {
     "commands": [
       {
-        "command": "pact.helloWorld",
+        "command": "priv-audit.helloWorld",
         "title": "Hello World"
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "priv-audit.priv-audit-participant",
+        "name": "priv-audit",
+        "fullName": "Privacy Audit Participant",
+        "description": "Audit code for potential privacy artifacts and concerns.",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "audit",
+            "description": "Audit the currently opened file for potential privacy artifacts and concerns.",
+            "disambiguation": [
+              {
+                "category": "privacy_audit",
+                "description": "The user wants to audit the currently opened file for potential privacy artifacts and concerns.",
+                "examples": [
+                  "Audit the currently opened file for privacy artifacts and concerns.",
+                  "Check the current file for any privacy-related issues.",
+                  "Look for potential privacy issues in the current file."
+                ]
+              }
+            ]
+          }
+        ],
+        "disambiguation": [
+          {
+            "category": "privacy_audit",
+            "description": "The user wants to audit their code to look for privacy related artifacts and concerns.",
+            "examples": [
+              "Audit my code for privacy issues.",
+              "Check for privacy-related problems in my code.",
+              "Look for potential privacy concerns in my code."
+            ]
+          }
+        ]
       }
     ]
   },
@@ -38,6 +75,7 @@
     "typescript-eslint": "^8.56.1"
   },
   "dependencies": {
-    "@types/jest": "^30.0.0"
+    "@types/jest": "^30.0.0",
+    "@vscode/prompt-tsx": "^0.4.0-alpha.8"
   }
 }
