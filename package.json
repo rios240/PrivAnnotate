@@ -22,17 +22,17 @@
       {
         "id": "priv-audit.priv-audit-participant",
         "name": "priv-audit",
-        "fullName": "Privacy Audit Participant",
-        "description": "Audit code for potential privacy artifacts and concerns.",
+        "fullName": "PrivAudit Participant",
+        "description": "Audit code for potential privacy concerns.",
         "isSticky": true,
         "commands": [
           {
             "name": "audit",
-            "description": "Audit the currently opened file for potential privacy artifacts and concerns.",
+            "description": "Audit the currently opened file for potential privacy concerns.",
             "disambiguation": [
               {
                 "category": "privacy_audit",
-                "description": "The user wants to audit the currently opened file for potential privacy artifacts and concerns.",
+                "description": "The user wants to audit the currently opened file for potential privacy concerns.",
                 "examples": [
                   "Audit the currently opened file for privacy artifacts and concerns.",
                   "Check the current file for any privacy-related issues.",
@@ -45,7 +45,7 @@
         "disambiguation": [
           {
             "category": "privacy_audit",
-            "description": "The user wants to audit their code to look for privacy related artifacts and concerns.",
+            "description": "The user wants to audit their code for privacy related concerns.",
             "examples": [
               "Audit my code for privacy issues.",
               "Check for privacy-related problems in my code.",

@@ -16,7 +16,7 @@ export interface AuditPromptProps extends BasePromptElementProps {
 }
 
 export class AuditPrompt extends PromptElement<AuditPromptProps, void> {
-    render(state: void, sizing: PromptSizing) {
+    render(_state: void, _sizing: PromptSizing) {
         return (
             <>
                 <SystemMessage>
@@ -44,7 +44,7 @@ export class AuditPrompt extends PromptElement<AuditPromptProps, void> {
 }
 
 export class DefaultPrompt extends PromptElement<BasePromptElementProps, void> {
-    render(state: void, sizing: PromptSizing) {
+    render(_state: void, _sizing: PromptSizing) {
         return (
             <>
                 <SystemMessage>
@@ -66,25 +66,35 @@ export async function constructAuditPrompt(
     model: vscode.LanguageModelChat,
     props: AuditPromptProps
 ) {
-    const { messages } = await renderPrompt(
-        AuditPrompt,
-        props,
-        { modelMaxPromptTokens: model.maxInputTokens },
-        model
-    );
+    try {
+        const { messages } = await renderPrompt(
+            AuditPrompt,
+            props,
+            { modelMaxPromptTokens: model.maxInputTokens },
+            model
+        );
 
     return messages;
+    
+    } catch (error) {
+        console.error('[constructAuditPrompt]:', error);
+        throw error;
+    }
 }
 
 export async function constructDefaultPrompt(
     model: vscode.LanguageModelChat
 ) {
-    const { messages } = await renderPrompt(
-        DefaultPrompt,
-        {},
-        { modelMaxPromptTokens: model.maxInputTokens },
-        model
-    );
-
-    return messages;
+    try {
+        const { messages } = await renderPrompt(
+            DefaultPrompt,
+            {},
+            { modelMaxPromptTokens: model.maxInputTokens },
+            model
+        );
+        return messages;
+    } catch (error) {
+        console.error('[constructDefaultPrompt]:', error);
+        throw error;
+    }
 }
