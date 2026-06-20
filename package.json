@@ -20,19 +20,19 @@
     ],
     "chatParticipants": [
       {
-        "id": "priv-audit.priv-audit-participant",
+        "id": "priv-audit.participant",
         "name": "priv-audit",
-        "fullName": "PrivAudit Participant",
+        "fullName": "PrivAudit",
         "description": "Audit code for potential privacy concerns.",
         "isSticky": true,
         "commands": [
           {
             "name": "audit",
-            "description": "Audit the currently opened file for potential privacy concerns.",
+            "description": "Audit the currently opened file or selection for potential privacy concerns.",
             "disambiguation": [
               {
                 "category": "privacy_audit",
-                "description": "The user wants to audit the currently opened file for potential privacy concerns.",
+                "description": "The user wants to audit the currently opened file or selection for potential privacy concerns.",
                 "examples": [
                   "Audit the currently opened file for privacy artifacts and concerns.",
                   "Check the current file for any privacy-related issues.",

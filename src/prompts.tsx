@@ -1,7 +1,7 @@
 import {
     PromptElement,
     PromptSizing,
-    SystemMessage,
+    AssistantMessage,
     UserMessage,
     PrioritizedList,
     renderPrompt,
@@ -9,17 +9,17 @@ import {
 } from '@vscode/prompt-tsx';
 import * as vscode from 'vscode';
 
-export interface AuditPromptProps extends BasePromptElementProps {
+export interface IAuditPromptProps extends BasePromptElementProps {
     contents: string,
     file: string,
     language: string
 }
 
-export class AuditPrompt extends PromptElement<AuditPromptProps, void> {
+export class AuditPrompt extends PromptElement<IAuditPromptProps, void> {
     render(_state: void, _sizing: PromptSizing) {
         return (
             <>
-                <SystemMessage>
+                <AssistantMessage>
                     You are a privacy and security auditor specializing in code review.
                     Your job is to analyze code for potential privacy concerns including but not limited to:
                     - Logging or exposing PII (names, emails, addresses, IDs)
@@ -28,7 +28,7 @@ export class AuditPrompt extends PromptElement<AuditPromptProps, void> {
                     - Third-party data sharing without clear consent
                     - Overly broad data collection
                     Be specific and reference exact line numbers or code snippets where possible.
-                </SystemMessage>
+                </AssistantMessage>
                 <UserMessage>
                     Please audit the following {this.props.language} code for privacy concerns.
                     File: {this.props.file}
@@ -43,11 +43,15 @@ export class AuditPrompt extends PromptElement<AuditPromptProps, void> {
     }
 }
 
-export class DefaultPrompt extends PromptElement<BasePromptElementProps, void> {
+export interface IDefaultPromptProps extends BasePromptElementProps {
+    userQuery: string,
+}
+
+export class DefaultPrompt extends PromptElement<IDefaultPromptProps, void> {
     render(_state: void, _sizing: PromptSizing) {
         return (
             <>
-                <SystemMessage>
+                <AssistantMessage>
                     You are a privacy and security auditor specializing in code review.
                     Your job is to analyze code for potential privacy concerns including but not limited to:
                     - Logging or exposing PII (names, emails, addresses, IDs)
@@ -56,7 +60,10 @@ export class DefaultPrompt extends PromptElement<BasePromptElementProps, void> {
                     - Third-party data sharing without clear consent
                     - Overly broad data collection
                     Be specific and reference exact line numbers or code snippets where possible.
-                </SystemMessage>
+                </AssistantMessage>
+                <UserMessage>
+                    {this.props.userQuery}
+                </UserMessage>
             </>
         )
     }
@@ -64,7 +71,7 @@ export class DefaultPrompt extends PromptElement<BasePromptElementProps, void> {
 
 export async function constructAuditPrompt(
     model: vscode.LanguageModelChat,
-    props: AuditPromptProps
+    props: IAuditPromptProps
 ) {
     try {
         const { messages } = await renderPrompt(
@@ -83,12 +90,13 @@ export async function constructAuditPrompt(
 }
 
 export async function constructDefaultPrompt(
-    model: vscode.LanguageModelChat
+    model: vscode.LanguageModelChat,
+    props: IDefaultPromptProps
 ) {
     try {
         const { messages } = await renderPrompt(
             DefaultPrompt,
-            {},
+            props,
             { modelMaxPromptTokens: model.maxInputTokens },
             model
         );

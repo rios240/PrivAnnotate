@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { constructAuditPrompt, constructDefaultPrompt} from './prompt';
+import { constructAuditPrompt, constructDefaultPrompt} from './prompts';
 
-const PRIV_AUDIT_PARTICIPANT_ID = 'priv-audit.priv-audit-participant';
+const PRIV_AUDIT_PARTICIPANT_ID = 'priv-audit.participant';
 
 interface IPrivAuditChatResult extends vscode.ChatResult {
     metadata: {
@@ -18,7 +18,13 @@ export function registerPrivAuditParticipant(context: vscode.ExtensionContext) {
         token: vscode.CancellationToken
     ): Promise<IPrivAuditChatResult> => {
 
-        if (request.command === 'audit') {
+        const models = await vscode.lm.selectChatModels({ vendor: 'copilot', family: 'gpt-5-mini'});
+        console.log('Selected models:', models);
+		if (models.length > 0) {
+            const chatModel = models[0];
+            console.log('Using language model:', chatModel);
+
+            if (request.command === 'audit') {
             stream.progress('Auditing code for privacy concerns...');
             
             const editor = vscode.window.activeTextEditor;
@@ -42,13 +48,13 @@ export function registerPrivAuditParticipant(context: vscode.ExtensionContext) {
             }
 
             try {
-                const messages = await constructAuditPrompt(request.model, {
+                const messages = await constructAuditPrompt(chatModel, {
                     contents,
                     file,
                     language
                 });
 
-                const response = await request.model.sendRequest(messages, {}, token);
+                const response = await chatModel.sendRequest(messages, {}, token);
                 for await (const fragment of response.text) {
                     stream.markdown(fragment);
                 }
@@ -60,24 +66,28 @@ export function registerPrivAuditParticipant(context: vscode.ExtensionContext) {
 
             return {metadata: {command: 'audit'}};
         
-        } else {
-            try {
-                const messages = await constructDefaultPrompt(request.model);
+            } else {
+                try {
+                    const messages = await constructDefaultPrompt(chatModel, { userQuery: request.prompt });
 
-                const response = await request.model.sendRequest(messages, {}, token);
+                    const response = await chatModel.sendRequest(messages, {}, token);
 
-                for await (const fragment of response.text) {
-                    stream.markdown(fragment);
+                    for await (const fragment of response.text) {
+                        stream.markdown(fragment);
+                    }
+
+                } catch (error) {
+                    console.error('[registerPrivAuditParticipant] Error in default handler:', error);
+                    stream.markdown(`Error: ${error instanceof Error ? error.message : JSON.stringify(error)}`);
                 }
 
-            } catch (error) {
-                console.error('[registerPrivAuditParticipant] Error in default handler:', error);
-                stream.markdown(`Error: ${error instanceof Error ? error.message : JSON.stringify(error)}`);
+                return {metadata: {command: ''} };
             }
 
-            return {metadata: {command: ''} };
+		} else {
+            console.error('No suitable language model found.');
+			return {metadata: {command: ''} };
         }
-
     };
     
     vscode.chat.createChatParticipant(PRIV_AUDIT_PARTICIPANT_ID, handler);
