@@ -3,7 +3,7 @@ import { registerPrivAuditParticipant } from './privAudit';
 
 export function activate(context: vscode.ExtensionContext) {
 
-	console.log('Privacy Audit is now active.');
+	console.log('PrivAudit is now active.');
 
 	const cmdHellowWorld = vscode.commands.registerCommand('priv-audit.helloWorld', () => {
 		vscode.window.showInformationMessage('Hello World from PrivAudit!');
