@@ -18,53 +18,54 @@ export function registerPrivAuditParticipant(context: vscode.ExtensionContext) {
         token: vscode.CancellationToken
     ): Promise<IPrivAuditChatResult> => {
 
-        const models = await vscode.lm.selectChatModels({ vendor: 'copilot', family: 'gpt-5-mini'});
+        const models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
         console.log('Selected models:', models);
+        console.log(request.references);
 		if (models.length > 0) {
             const chatModel = models[0];
             console.log('Using language model:', chatModel);
 
             if (request.command === 'audit') {
-            stream.progress('Auditing code for privacy concerns...');
-            
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
-                stream.markdown("No file is currently opened. Please open a file and try again.");
-                return {metadata: {command: ''} };
-            }
-
-            const document = editor.document;
-
-            const selection = editor.selection;
-            const contents = selection.isEmpty 
-                ? document.getText()
-                : document.getText(selection);
-            const file = document.uri.fsPath;
-            const language = document.languageId;
-
-            if (document.isUntitled) {
-                stream.markdown("Cannot audit untitled files. Please save the file and try again.");
-                return {metadata: {command: ''} };
-            }
-
-            try {
-                const messages = await constructAuditPrompt(chatModel, {
-                    contents,
-                    file,
-                    language
-                });
-
-                const response = await chatModel.sendRequest(messages, {}, token);
-                for await (const fragment of response.text) {
-                    stream.markdown(fragment);
+                stream.progress('Auditing code for privacy concerns...');
+                
+                const editor = vscode.window.activeTextEditor;
+                if (!editor) {
+                    stream.markdown("No file is currently opened. Please open a file and try again.");
+                    return {metadata: {command: ''} };
                 }
 
-            } catch (error) {
-                console.error('[registerPrivAuditParticipant] Error in audit handler:', error);
-                stream.markdown(`Error: ${error instanceof Error ? error.message : JSON.stringify(error)}`);
-            }
+                const document = editor.document;
 
-            return {metadata: {command: 'audit'}};
+                const selection = editor.selection;
+                const contents = selection.isEmpty 
+                    ? document.getText()
+                    : document.getText(selection);
+                const file = document.uri.fsPath;
+                const language = document.languageId;
+
+                if (document.isUntitled) {
+                    stream.markdown("Cannot audit untitled files. Please save the file and try again.");
+                    return {metadata: {command: ''} };
+                }
+
+                try {
+                    const messages = await constructAuditPrompt(chatModel, {
+                        contents,
+                        file,
+                        language
+                    });
+
+                    const response = await chatModel.sendRequest(messages, {}, token);
+                    for await (const fragment of response.text) {
+                        stream.markdown(fragment);
+                    }
+
+                } catch (error) {
+                    console.error('[registerPrivAuditParticipant] Error in audit handler:', error);
+                    stream.markdown(`Error: ${error instanceof Error ? error.message : JSON.stringify(error)}`);
+                }
+
+                return {metadata: {command: 'audit'}};
         
             } else {
                 try {
