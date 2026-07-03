@@ -20,7 +20,6 @@ export function registerPrivAuditParticipant(context: vscode.ExtensionContext) {
 
         const models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
         console.log('Selected models:', models);
-        console.log(request.references);
 		if (models.length > 0) {
             const chatModel = models[0];
             console.log('Using language model:', chatModel);
