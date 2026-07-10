@@ -43,66 +43,16 @@ export class AuditPrompt extends PromptElement<IAuditPromptProps, void> {
     }
 }
 
-export interface IDefaultPromptProps extends BasePromptElementProps {
-    userQuery: string,
-}
-
-export class DefaultPrompt extends PromptElement<IDefaultPromptProps, void> {
-    render(_state: void, _sizing: PromptSizing) {
-        return (
-            <>
-                <AssistantMessage>
-                    You are a privacy and security auditor specializing in code review.
-                    Your job is to analyze code for potential privacy concerns including but not limited to:
-                    - Logging or exposing PII (names, emails, addresses, IDs)
-                    - Insecure storage or transmission of sensitive data
-                    - Missing or insufficient access controls
-                    - Third-party data sharing without clear consent
-                    - Overly broad data collection
-                    Be specific and reference exact line numbers or code snippets where possible.
-                </AssistantMessage>
-                <UserMessage>
-                    {this.props.userQuery}
-                </UserMessage>
-            </>
-        )
-    }
-}
-
 export async function constructAuditPrompt(
     model: vscode.LanguageModelChat,
     props: IAuditPromptProps
 ) {
-    try {
-        const { messages } = await renderPrompt(
-            AuditPrompt,
-            props,
-            { modelMaxPromptTokens: model.maxInputTokens },
-            model
-        );
+    const { messages } = await renderPrompt(
+        AuditPrompt,
+        props,
+        { modelMaxPromptTokens: model.maxInputTokens },
+        model
+    );
 
     return messages;
-    
-    } catch (error) {
-        console.error('[constructAuditPrompt]:', error);
-        throw error;
-    }
-}
-
-export async function constructDefaultPrompt(
-    model: vscode.LanguageModelChat,
-    props: IDefaultPromptProps
-) {
-    try {
-        const { messages } = await renderPrompt(
-            DefaultPrompt,
-            props,
-            { modelMaxPromptTokens: model.maxInputTokens },
-            model
-        );
-        return messages;
-    } catch (error) {
-        console.error('[constructDefaultPrompt]:', error);
-        throw error;
-    }
 }

@@ -16,7 +16,7 @@ This project is part of a MS in Computer Science thesis with the aim of creating
 Currently the following has been completed:
 
 - Used the VS Code extension generator to scaffold the project.
-- Registered a simple Chat Participant called PrivAudit
-- Defined a slash command called `audit` that takes a code selection or whole file (using `vscode.window.activeTextEditor`) and packages it along with a simple base prompt to send to Copilot. 
+- Registered a simple Chat Participant called PrivAudit to intercept chat messages.
+- Defined a slash command called `audit` that takes a code selection or a whole file and packages it along with simple base instructions to send to a randomly chosen Copilot LLM. 
 - Prompts are created using the Prompt TSX library.
 - Responses are currenly just returned in the chat window. 
