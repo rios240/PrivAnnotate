@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
-import { constructAuditPrompt, constructDefaultPrompt} from './prompts';
+import { constructAuditPrompt} from './prompts';
+import { LINKING_THREATS, IDENTIFYING_THREATS, NON_REPUDIATION_THREATS} from './misc/linddun';
+
 
 const PRIV_AUDIT_PARTICIPANT_ID = 'priv-audit.participant';
 
@@ -45,7 +47,10 @@ export function registerPrivAuditParticipant(context: vscode.ExtensionContext) {
                 const messages = await constructAuditPrompt(request.model, {
                     contents,
                     file,
-                    language
+                    language,
+                    linkingThreats: LINKING_THREATS,
+                    identifyingThreats: IDENTIFYING_THREATS,
+                    nonRepudiationThreats: NON_REPUDIATION_THREATS
                 });
 
                 const response = await request.model.sendRequest(messages, {}, token);

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { registerPrivAuditParticipant } from './privAudit';
+import { registerPrivAuditParticipant } from './participant';
 
 export function activate(context: vscode.ExtensionContext) {
 
