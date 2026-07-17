@@ -13,7 +13,7 @@ export interface Threat {
     hotspot: string
 }
 
-export const LINKING_THREATS: Threat[] = [
+export const THREATS: Threat[] = [
     {
         id: 'L1',
         type: 'Linking',
@@ -31,9 +31,6 @@ export const LINKING_THREATS: Threat[] = [
         ],
         hotspot: 'Inbound User with Personal Data'
     },
-];
-
-export const IDENTIFYING_THREATS: Threat[] = [
     {
         id: 'I1',
         type: 'Identifying',
@@ -48,9 +45,6 @@ export const IDENTIFYING_THREATS: Threat[] = [
         ],
         hotspot: 'Inbound User with Personal Data'
     },
-];
-
-export const NON_REPUDIATION_THREATS: Threat[] = [
     {
         id: 'Nr1',
         type: 'Non-repudiation',

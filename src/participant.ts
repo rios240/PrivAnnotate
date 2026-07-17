@@ -1,7 +1,5 @@
 import * as vscode from 'vscode';
 import { constructAuditPrompt} from './prompts';
-import { LINKING_THREATS, IDENTIFYING_THREATS, NON_REPUDIATION_THREATS} from './misc/linddun';
-
 
 const PRIV_AUDIT_PARTICIPANT_ID = 'priv-audit.participant';
 
@@ -19,6 +17,7 @@ export function registerPrivAuditParticipant(context: vscode.ExtensionContext) {
         stream: vscode.ChatResponseStream,
         token: vscode.CancellationToken
     ): Promise<IPrivAuditChatResult> => {
+        logger.logUsage('budget', { tokens: request.model.maxInputTokens });
 
         if (request.command === 'audit') {
             stream.progress('Auditing code for privacy concerns...');
@@ -48,9 +47,6 @@ export function registerPrivAuditParticipant(context: vscode.ExtensionContext) {
                     contents,
                     file,
                     language,
-                    linkingThreats: LINKING_THREATS,
-                    identifyingThreats: IDENTIFYING_THREATS,
-                    nonRepudiationThreats: NON_REPUDIATION_THREATS
                 });
 
                 const response = await request.model.sendRequest(messages, {}, token);
