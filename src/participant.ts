@@ -47,6 +47,9 @@ export function registerPrivAuditParticipant(context: vscode.ExtensionContext) {
                     contents,
                     file,
                     language,
+                    onTruncated: (info) => {
+                        logger.logUsage('truncated', info);
+                    }
                 });
 
                 const response = await request.model.sendRequest(messages, {}, token);

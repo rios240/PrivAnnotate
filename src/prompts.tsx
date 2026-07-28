@@ -2,7 +2,6 @@ import {
     PromptElement,
     PromptSizing,
     AssistantMessage,
-    TextChunk,
     UserMessage,
     PrioritizedList,
     renderPrompt,
@@ -17,6 +16,7 @@ export interface IAuditPromptProps extends BasePromptElementProps {
     contents: string,
     file: string,
     language: string,
+    onTruncated?: (info: { totalLines: number; includedLines: number }) => void;
 }
 
 export class AuditPrompt extends PromptElement<IAuditPromptProps, void> {
@@ -43,11 +43,11 @@ export class AuditPrompt extends PromptElement<IAuditPromptProps, void> {
                     influencing the ability to deny claims.<br />
                     <br />
                     Additionally, a list of specific privacy threats (threat cards) may be provided for each LINDDUN type. 
-                    If provided, you must use the threat cards to fine-grain the analysis, if not use the general LINDDUN types. Each threat card is 
-                    enclosed in triple quotes and contain the following fields:<br />
+                    If provided, you must use the threat cards to fine-grain the analysis. If not provided use the general 
+                    LINDDUN threat types. Each threat card is enclosed in triple quotes and contain the following fields:<br />
                     &nbsp;&nbsp;- IDENTIFIER: unique identifier for the card.<br />
                     &nbsp;&nbsp;- TYPE: LINDDUN type the threat belongs to.<br />
-                    &nbsp;&nbsp;- TITLE: name of the threat.<br />
+                    &nbsp;&nbsp;- THREAT: name of the threat.<br />
                     &nbsp;&nbsp;- DESCRIPTION: brief explanation of the threat.<br />
                     &nbsp;&nbsp;- HOTSPOT: where the threat occurs in the system.<br />
                     &nbsp;&nbsp;- ELICITATION QUESTIONS: to help determine if the threat applies. DO NOT assume
@@ -58,37 +58,26 @@ export class AuditPrompt extends PromptElement<IAuditPromptProps, void> {
                     <ThreatList threats={THREATS} priority={80} descending={true} />
                 </AssistantMessage>
                 <AssistantMessage priority={95}>
-                        Respond with ONLY a single JSON object with markdown code fences, no prose before or after. 
+                        Respond ONLY with a series of JSON objects each fenced in triple backticks, no prose before or after. 
                         The JSON must conform exactly to this schema:
                         <br />
                         {JSON.stringify(RESPONSE, null, 2)}
                         <br />
-                        Example of a valid response:
+                        Example of a valid threat response:
                         <br />
-                        {JSON.stringify({
-                            findings: [
-                                {
-                                    threatId: 'L1',
-                                    category: 'Linking',
-                                    title: 'Linked User Requests',
-                                    description: 'The `userId` field is logged alongside the IP address on line 42, enabling linkage of requests to a single individual across sessions.',
-                                    location: { startLine: 42, endLine: 42, snippet: 'logger.info(`Request from user ${userId} at ${ip}`)' },
-                                    confidence: 'high',
-                                    recommendation: 'Hash or omit the userId in logs, or use a rotating session token instead.'
-                                }
-                            ]
-                        }, null, 2)}
-                        <br />
-                        If no privacy concerns are found, return {'{'} "findings": [] {'}'}. Do not invent findings that aren't grounded in the code you were given.
+                        If no privacy concerns are found, return {'{}'}. Do not invent findings that aren't grounded in the code you were given.
                 </AssistantMessage>
                 <UserMessage priority={90} flexGrow={1}>
-                    Analyze the following {this.props.language} code from {this.props.file} against
-                    the threat cards. The code will be fenced in triple backticks.<br />
-                    ```<br />
-                    <TextChunk breakOn="\n">
-                        {this.props.contents}
-                    </TextChunk><br />
-                    ```
+                    Analyze the following {this.props.language} code against the provided threat cards (if provided). The code is fenced in triple backticks. 
+                    Each line is prefixed with its exact line number "N" (format: "N| code"). Use these exact numbers verbatim in the "location" field 
+                    of your JSON output. DO NOT recalculate or estimate line numbers yourself.<br />
+                    <br />
+                    <CodeElement
+                        contents={this.props.contents}
+                        file={this.props.file}
+                        language={this.props.language}
+                        onTruncated={this.props.onTruncated}
+                    />
                 </UserMessage>
             </>
         )
@@ -125,7 +114,7 @@ export class ThreatElement extends PromptElement<IThreatProps, void> {
                 '''<br />
                 IDENTIFIER: {threat.id}<br />
                 TYPE: {threat.type}<br />
-                TITLE: {threat.title}<br />
+                THREAT: {threat.threat}<br />
                 DESCRIPTION: {threat.description}<br />
                 HOTSPOT: {threat.hotspot}<br />
                 ELICITATION QUESTIONS:<br />
@@ -135,6 +124,74 @@ export class ThreatElement extends PromptElement<IThreatProps, void> {
                 '''
             </>
         )
+    }
+}
+
+export interface ICodeElementProps extends BasePromptElementProps {
+    contents: string;
+    file: string;
+    language: string;
+    startLine?: number;
+    onTruncated?: (info: { totalLines: number; includedLines: number }) => void;
+}
+
+interface ICodeElementState {
+    body: string;
+    startLine: number;
+    endLine: number;
+    totalLines: number;
+    truncated: boolean;
+}
+
+export class CodeElement extends PromptElement<ICodeElementProps, ICodeElementState> {
+    async prepare(sizing: PromptSizing): Promise<ICodeElementState> {
+        const startLine = this.props.startLine ?? 1;
+        const lines = this.props.contents.split('\n');
+        const maxLineNo = startLine + lines.length - 1;
+        const width = String(maxLineNo).length;
+        const numbered = lines.map((line, i) =>
+            `${String(startLine + i).padStart(width, ' ')}| ${line}`
+        );
+
+        const header = `\`\`\`${this.props.language}\n`;
+        const footer = `\n\`\`\``;
+        const fixedCost = await sizing.countTokens(header + footer);
+        const budget = sizing.tokenBudget - fixedCost;
+
+        let included: string[] = [];
+        let usedTokens = 0;
+        for (const line of numbered) {
+            const lineTokens = await sizing.countTokens(line + '\n');
+            if (usedTokens + lineTokens > budget) break;
+            included.push(line);
+            usedTokens += lineTokens;
+        }
+
+        const truncated = included.length < numbered.length;
+        if (truncated) {
+            this.props.onTruncated?.({ totalLines: numbered.length, includedLines: included.length });
+        }
+
+        return {
+            body: `${header}${included.join('\n')}${footer}`,
+            startLine,
+            endLine: startLine + included.length - 1,
+            totalLines: numbered.length,
+            truncated,
+        };
+    }
+
+    render(state: ICodeElementState) {
+        return (
+            <>
+                File: {this.props.file}
+                <br />
+                {state.truncated && (
+                    <>[NOTE: file truncated: showing lines {state.startLine}-{state.endLine} of {state.totalLines} due to token budget]<br /></>
+                )}
+                {state.body}
+            </>
+        );
     }
 }
 
