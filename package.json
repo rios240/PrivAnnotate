@@ -44,7 +44,7 @@
         ],
         "disambiguation": [
           {
-            "category": "privacy_audit",
+            "category": "privacy",
             "description": "The user wants to audit their code for privacy related concerns.",
             "examples": [
               "Audit my code for privacy issues.",

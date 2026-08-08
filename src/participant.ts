@@ -17,7 +17,7 @@ export function registerPrivAuditParticipant(context: vscode.ExtensionContext) {
         stream: vscode.ChatResponseStream,
         token: vscode.CancellationToken
     ): Promise<IPrivAuditChatResult> => {
-        logger.logUsage('budget', { tokens: request.model.maxInputTokens });
+        console.log(`[PrivAudit] Budget: ${request.model.maxInputTokens}`);
 
         if (request.command === 'audit') {
             stream.progress('Auditing code for privacy concerns...');
@@ -48,7 +48,7 @@ export function registerPrivAuditParticipant(context: vscode.ExtensionContext) {
                     file,
                     language,
                     onTruncated: (info) => {
-                        logger.logUsage('truncated', info);
+                        console.log(`[PrivAudit] Truncated: ${JSON.stringify(info)}`);
                     }
                 });
 
@@ -56,62 +56,14 @@ export function registerPrivAuditParticipant(context: vscode.ExtensionContext) {
                 for await (const fragment of response.text) {
                     stream.markdown(fragment);
                 }
-                logger.logUsage('request', { type: 'audit' });
             } catch (error) {
-                handleError(logger, error, stream);
+                console.log(`[PrivAudit] Error: ${error}`);
             }
             return {metadata: {command: 'audit'}};
-    
         } else {
-            logger.logUsage('request', { type: '' });
             return {metadata: {command: ''} };
         }
     };
     
     vscode.chat.createChatParticipant(PRIV_AUDIT_PARTICIPANT_ID, handler);
-
-    const logger = vscode.env.createTelemetryLogger({
-        sendEventData(eventName, data) {
-            // Capture event telemetry
-            console.log(`[PrivAudit] Event: ${eventName}`, data);
-        },
-        sendErrorData(error, data) {
-            // Capture error telemetry
-            console.error(`[PrivAudit] Error: ${error}`, data);
-        }
-    });
-}
-
-function handleError(logger: vscode.TelemetryLogger, error: unknown, stream: vscode.ChatResponseStream): void {
-    logger.logError(error instanceof Error ? error : new Error(String(error)));
-
-    if (error instanceof vscode.LanguageModelError) {
-        console.error(`[PrivAudit] LanguageModelError: ${error.message}`, { code: error.code, cause: error.cause });
-        
-        switch(error.code) {
-            case 'NoPermissions':
-                stream.markdown(
-                    'PrivAudit needs permission to use the requested language model.'
-                );
-                break;
-            case 'NotFound':
-                stream.markdown(
-                    'No suitable language model is available.'
-                );
-                break;
-            case 'Blocked':
-                stream.markdown(
-                    'The request was blocked by content filtering before an audit could be completed.'
-                );
-                break;
-            default:
-                stream.markdown(
-                    `The language model encountered an unexpected error: (${error.code ?? 'unknown'}). ` +
-                    'Please try again.'
-                );
-        }
-    } else {
-        const message = error instanceof Error ? error.message : JSON.stringify(error);
-        stream.markdown(`Audit could not be completed due to an internal error: ${message}`);
-    }
 }
