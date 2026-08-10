@@ -12,14 +12,13 @@ import * as vscode from 'vscode';
 import { Threat, THREATS } from './misc/linddun';
 import { RESPONSE } from './misc/response';
 
-export interface IAuditPromptProps extends BasePromptElementProps {
-    contents: string,
-    file: string,
-    language: string,
+export interface IAnalyzePromptProps extends BasePromptElementProps {
+    document: vscode.TextDocument,
+    range?: vscode.Range,
     onTruncated?: (info: { totalLines: number; includedLines: number }) => void;
 }
 
-export class AuditPrompt extends PromptElement<IAuditPromptProps, void> {
+export class AnalyzePrompt extends PromptElement<IAnalyzePromptProps, void> {
     render(_state: void, _sizing: PromptSizing) {
         return (
             <>
@@ -41,25 +40,24 @@ export class AuditPrompt extends PromptElement<IAuditPromptProps, void> {
                     &nbsp;&nbsp;- EXAMPLES: to help illustrate the threat. DO NOT assume the threat is limited to ONLY
                     these examples.
                     <br />
-                    <ThreatList threats={THREATS} priority={80} descending={true} />
+                    <ThreatList threats={THREATS} priority={70} descending={true} />
                 </AssistantMessage>
-                <AssistantMessage priority={95}>
-                        Respond ONLY with a series of JSON objects each fenced in triple backticks, no prose before or after. 
+                <AssistantMessage priority={90}>
+                        Respond ONLY with a series of JSON objects each separated with a vertical bar "|", no backticks, no prose before or after. 
                         The JSON must conform exactly to this schema:
                         <br />
                         {JSON.stringify(RESPONSE, null, 2)}
                         <br />
-                        If no privacy concerns are found, return {'{}'}. Do not invent findings that aren't grounded in the code or threat cards you are given.
+                        If no privacy threats are found, return {'{}'}. Do not invent findings that aren't grounded in the code or threat cards you are given.
                 </AssistantMessage>
-                <UserMessage priority={90} flexGrow={1}>
-                    Analyze the following {this.props.language} code against the provided threat cards (if provided). The code is fenced in triple backticks. 
+                <UserMessage priority={80} flexGrow={1}>
+                    Analyze the following {this.props.document.languageId} code against the provided threat cards. The code is fenced in triple backticks. 
                     Each line is prefixed with its exact line number "N" (format: "N| code"). Use these exact numbers verbatim in the "location" field 
                     of your JSON output. DO NOT recalculate or estimate line numbers yourself.<br />
                     <br />
                     <CodeElement
-                        contents={this.props.contents}
-                        file={this.props.file}
-                        language={this.props.language}
+                        document={this.props.document}
+                        range={this.props.range}
                         onTruncated={this.props.onTruncated}
                     />
                 </UserMessage>
@@ -112,10 +110,8 @@ export class ThreatElement extends PromptElement<IThreatProps, void> {
 }
 
 export interface ICodeElementProps extends BasePromptElementProps {
-    contents: string;
-    file: string;
-    language: string;
-    startLine?: number;
+    document: vscode.TextDocument;
+    range?: vscode.Range
     onTruncated?: (info: { totalLines: number; includedLines: number }) => void;
 }
 
@@ -129,62 +125,62 @@ interface ICodeElementState {
 
 export class CodeElement extends PromptElement<ICodeElementProps, ICodeElementState> {
     async prepare(sizing: PromptSizing): Promise<ICodeElementState> {
-        const startLine = this.props.startLine ?? 1;
-        const lines = this.props.contents.split('\n');
+        const doc = this.props.document;
+        const range = this.props.range ?? new vscode.Range(
+            0, 0,
+            doc.lineCount - 1,
+            doc.lineAt(doc.lineCount - 1).text.length
+        );
+
+        // VS Code positions are 0-based; show 1-based line numbers to the LLM
+        // so "location" in its JSON response maps directly onto real editor lines.
+        const startLine = range.start.line + 1;
+        const lines = doc.getText(range).split(/\r?\n/);
         const maxLineNo = startLine + lines.length - 1;
         const width = String(maxLineNo).length;
-        const numbered = lines.map((line, i) =>
+        const numberedLines = lines.map((line, i) =>
             `${String(startLine + i).padStart(width, ' ')}| ${line}`
         );
 
-        const header = `\`\`\`${this.props.language}\n`;
+        const header = `\`\`\`\n`;
         const footer = `\n\`\`\``;
         const fixedCost = await sizing.countTokens(header + footer);
         const budget = sizing.tokenBudget - fixedCost;
 
-        let included: string[] = [];
+        let includedLines: string[] = [];
         let usedTokens = 0;
-        for (const line of numbered) {
+        for (const line of numberedLines) {
             const lineTokens = await sizing.countTokens(line + '\n');
             if (usedTokens + lineTokens > budget) break;
-            included.push(line);
+            includedLines.push(line);
             usedTokens += lineTokens;
         }
 
-        const truncated = included.length < numbered.length;
+        const truncated = includedLines.length < numberedLines.length;
         if (truncated) {
-            this.props.onTruncated?.({ totalLines: numbered.length, includedLines: included.length });
+            this.props.onTruncated?.({ totalLines: numberedLines.length, includedLines: includedLines.length });
         }
 
         return {
-            body: `${header}${included.join('\n')}${footer}`,
+            body: `${header}${includedLines.join('\n')}${footer}`,
             startLine,
-            endLine: startLine + included.length - 1,
-            totalLines: numbered.length,
-            truncated,
+            endLine: startLine + includedLines.length - 1,
+            totalLines: numberedLines.length,
+            truncated
         };
     }
 
     render(state: ICodeElementState) {
-        return (
-            <>
-                File: {this.props.file}
-                <br />
-                {state.truncated && (
-                    <>[NOTE: file truncated: showing lines {state.startLine}-{state.endLine} of {state.totalLines} due to token budget]<br /></>
-                )}
-                {state.body}
-            </>
-        );
+        return <>{state.body}</>;
     }
 }
 
-export async function constructAuditPrompt(
+export async function constructAnalyzePrompt(
     model: vscode.LanguageModelChat,
-    props: IAuditPromptProps
+    props: IAnalyzePromptProps
 ) {
     const { messages } = await renderPrompt(
-        AuditPrompt,
+        AnalyzePrompt,
         props,
         { modelMaxPromptTokens: model.maxInputTokens },
         model

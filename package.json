@@ -14,47 +14,19 @@
   "contributes": {
     "commands": [
       {
-        "command": "priv-audit.helloWorld",
-        "title": "Hello World"
+        "command": "priv-audit.analyze",
+        "title": "Analyze Privacy Threats",
+        "icon": "$(shield)"
       }
     ],
-    "chatParticipants": [
-      {
-        "id": "priv-audit.participant",
-        "name": "priv-audit",
-        "fullName": "PrivAudit",
-        "description": "Audit code for potential privacy concerns.",
-        "isSticky": true,
-        "commands": [
-          {
-            "name": "audit",
-            "description": "Audit the currently opened file or selection for potential privacy concerns.",
-            "disambiguation": [
-              {
-                "category": "privacy_audit",
-                "description": "The user wants to audit the currently opened file or selection for potential privacy concerns.",
-                "examples": [
-                  "Audit the currently opened file for privacy artifacts and concerns.",
-                  "Check the current file for any privacy-related issues.",
-                  "Look for potential privacy issues in the current file."
-                ]
-              }
-            ]
-          }
-        ],
-        "disambiguation": [
-          {
-            "category": "privacy",
-            "description": "The user wants to audit their code for privacy related concerns.",
-            "examples": [
-              "Audit my code for privacy issues.",
-              "Check for privacy-related problems in my code.",
-              "Look for potential privacy concerns in my code."
-            ]
-          }
+    "menus": {
+        "editor/title": [
+            {
+                "command": "priv-audit.analyze",
+                "group": "navigation"
+            }
         ]
-      }
-    ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
