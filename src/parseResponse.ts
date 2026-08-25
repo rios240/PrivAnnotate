@@ -1,94 +1,178 @@
 import * as vscode from 'vscode';
-import { ThreatFinding, addFindings, updateDecorations, nextFindingId } from './misc/decorations';
+import { CategoryName, isCategoryName, CATEGORY_BY_CARD_ID, PdcCard } from './pdc/categories';
+import { downgradeConfidence, isRawFinding, PrivacyFinding, RawFinding } from './pdc/schema';
+import { nextFindingId } from './misc/decorations';
 
-interface RawThreatResponse {
-    threatId: string;
-    title: string;
-    summary: string;
-    location: { startLine: number; endLine: number };
-    consequences: string;
-    remediation: string;
+/** Everything the parser needs to ground a finding against real source text. */
+export interface ParseContext {
+    /** Full text of each analyzed line, keyed by 1-based line number. */
+    lineText: (line: number) => string | undefined;
+    /** First analyzed line, 1-based inclusive. */
+    rangeStart: number;
+    /** Last analyzed line, 1-based inclusive. */
+    rangeEnd: number;
+    /** Workspace-relative path; omitted for untitled documents. */
+    filePath?: string;
 }
 
-function isRawThreatResponse(value: unknown): value is RawThreatResponse {
-    if (typeof value !== 'object' || value === null) return false;
-    const v = value as Record<string, unknown>;
-
-    if (typeof v.threatId !== 'string') return false;
-    if (typeof v.title !== 'string') return false;
-    if (typeof v.summary !== 'string') return false;
-    if (typeof v.consequences !== 'string') return false;
-    if (typeof v.remediation !== 'string') return false;
-
-    if (typeof v.location !== 'object' || v.location === null) return false;
-    const loc = v.location as Record<string, unknown>;
-    if (typeof loc.startLine !== 'number' || typeof loc.endLine !== 'number') return false;
-
-    return true;
+export function buildParseContext(
+    document: vscode.TextDocument,
+    range: vscode.Range
+): ParseContext {
+    return {
+        lineText: line =>
+            line >= 1 && line <= document.lineCount ? document.lineAt(line - 1).text : undefined,
+        rangeStart: range.start.line + 1,
+        rangeEnd: Math.min(range.end.line + 1, document.lineCount),
+        filePath: document.isUntitled ? undefined : vscode.workspace.asRelativePath(document.uri),
+    };
 }
 
 /**
- * Defensively strips ```-fencing in case a segment still arrives wrapped
- * (models don't always follow "no fencing" instructions perfectly), so a
- * stray fence doesn't fail JSON.parse for an otherwise valid object.
+ * Extracts the outermost JSON array from a model response. Models don't always
+ * honor "no fencing, no prose", so strip a fence and any surrounding chatter
+ * rather than failing an otherwise valid array.
  */
-function cleanSegment(segment: string): string {
-    return segment
+export function extractJsonArray(text: string): string | undefined {
+    const cleaned = text
         .trim()
         .replace(/^```[a-zA-Z]*\s*/, '')
-        .replace(/```$/, '')
+        .replace(/```\s*$/, '')
         .trim();
+
+    const start = cleaned.indexOf('[');
+    const end = cleaned.lastIndexOf(']');
+    if (start === -1 || end === -1 || end < start) return undefined;
+
+    return cleaned.slice(start, end + 1);
 }
 
-export async function parseResponse(
+function normalize(text: string): string {
+    return text.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Checks that the excerpt actually came from the claimed span. An excerpt that
+ * matches nothing in its own line range is the signature of a hallucinated or
+ * misplaced finding, so it costs a confidence step rather than being trusted.
+ */
+function isExcerptGrounded(excerpt: string, start: number, end: number, ctx: ParseContext): boolean {
+    const firstLine = excerpt
+        .split(/\r?\n/)
+        .map(line => normalize(line.replace(/^\s*\d+\s*\|\s?/, '')))
+        .find(line => line.length > 0);
+
+    if (!firstLine) return false;
+
+    for (let line = start; line <= end; line++) {
+        const source = ctx.lineText(line);
+        if (source && normalize(source).includes(firstLine)) return true;
+    }
+    return false;
+}
+
+/**
+ * Accepts either a category enum name or a card ID (models sometimes answer
+ * "TP-02" where the schema asks for the enum), and rejects anything else.
+ */
+function resolveCategory(value: string): CategoryName | undefined {
+    if (isCategoryName(value)) return value;
+    return CATEGORY_BY_CARD_ID.get(value.trim().toUpperCase());
+}
+
+function toFinding(raw: RawFinding, card: PdcCard, ctx: ParseContext): PrivacyFinding | undefined {
+    const start = Math.round(raw.lineRange.start);
+    const end = Math.round(raw.lineRange.end);
+
+    if (start > end) {
+        console.warn(`priv-audit: [${card.id}] dropping finding with inverted line range`, raw.lineRange);
+        return undefined;
+    }
+    if (end < ctx.rangeStart || start > ctx.rangeEnd) {
+        console.warn(`priv-audit: [${card.id}] dropping finding outside the analyzed range`, raw.lineRange);
+        return undefined;
+    }
+
+    const clampedStart = Math.max(start, ctx.rangeStart);
+    const clampedEnd = Math.min(end, ctx.rangeEnd);
+
+    let confidence = raw.confidence;
+    if (!isExcerptGrounded(raw.excerpt, clampedStart, clampedEnd, ctx)) {
+        console.warn(
+            `priv-audit: [${card.id}] excerpt not found at lines ${clampedStart}-${clampedEnd}; ` +
+            'downgrading confidence'
+        );
+        confidence = downgradeConfidence(confidence);
+    }
+
+    const crossReferences = (raw.crossReferences ?? [])
+        .map(resolveCategory)
+        .filter((name): name is CategoryName => name !== undefined && name !== card.category);
+
+    return {
+        id: nextFindingId(),
+        // The card decides the category, not the model - one request, one lane.
+        category: card.category,
+        file: ctx.filePath,
+        lineRange: { start: clampedStart, end: clampedEnd },
+        excerpt: raw.excerpt,
+        evidence: raw.evidence,
+        confidence,
+        reasoning: raw.reasoning?.length ? raw.reasoning : undefined,
+        crossReferences: crossReferences.length ? [...new Set(crossReferences)] : undefined,
+    };
+}
+
+/**
+ * Turns one category's response into findings. Never throws: a category that
+ * answers with garbage yields no findings and does not sink the other seven.
+ */
+export function parseCategoryFindings(
+    text: string,
+    card: PdcCard,
+    ctx: ParseContext
+): PrivacyFinding[] {
+    const json = extractJsonArray(text);
+    if (json === undefined) {
+        console.warn(`priv-audit: [${card.id}] response contained no JSON array:`, text.slice(0, 200));
+        return [];
+    }
+
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(json);
+    } catch (error) {
+        console.warn(`priv-audit: [${card.id}] malformed JSON response:`, json.slice(0, 200), error);
+        return [];
+    }
+
+    if (!Array.isArray(parsed)) {
+        console.warn(`priv-audit: [${card.id}] expected a JSON array, got:`, typeof parsed);
+        return [];
+    }
+
+    const findings: PrivacyFinding[] = [];
+    for (const entry of parsed) {
+        if (!isRawFinding(entry)) {
+            console.warn(`priv-audit: [${card.id}] skipping element that does not match the schema:`, entry);
+            continue;
+        }
+        const finding = toFinding(entry, card, ctx);
+        if (finding) findings.push(finding);
+    }
+
+    return findings;
+}
+
+/** Drains the streamed response, then parses it. */
+export async function parseCategoryResponse(
     response: vscode.LanguageModelChatResponse,
-    textEditor: vscode.TextEditor
-): Promise<void> {
+    card: PdcCard,
+    ctx: ParseContext
+): Promise<PrivacyFinding[]> {
     let fullText = '';
     for await (const fragment of response.text) {
         fullText += fragment;
     }
-
-    const segments = fullText
-        .split('|')
-        .map(cleanSegment)
-        .filter(segment => segment.length > 0);
-
-    const findings: ThreatFinding[] = [];
-
-    for (const segment of segments) {
-        let parsed: unknown;
-        try {
-            parsed = JSON.parse(segment);
-        } catch (error) {
-            console.warn('priv-audit: skipping malformed JSON segment:', segment, error);
-            continue;
-        }
-
-        if (!isRawThreatResponse(parsed)) {
-            console.warn('priv-audit: skipping segment that does not match expected schema:', parsed);
-            continue;
-        }
-
-        if (parsed.threatId === 'N/A') continue;
-
-        findings.push({
-            id: nextFindingId(),
-            threatId: parsed.threatId,
-            title: parsed.title,
-            summary: parsed.summary,
-            startLine: parsed.location.startLine,
-            endLine: parsed.location.endLine,
-            consequences: parsed.consequences,
-            remediation: parsed.remediation,
-        });
-    }
-
-    if (findings.length === 0) {
-        vscode.window.showInformationMessage('LINDDUN GO analysis: no privacy threats found.');
-        return;
-    }
-
-    addFindings(textEditor.document, findings);
-    updateDecorations(textEditor);
+    return parseCategoryFindings(fullText, card, ctx);
 }
