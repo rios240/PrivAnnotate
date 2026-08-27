@@ -25,7 +25,7 @@ export interface ITruncationInfo {
 }
 
 /* ------------------------------------------------------------------ */
-/* 1. Prelude — role, grounding rules, framework context               */
+/* 1. Prelude - role, grounding rules, framework context               */
 /* ------------------------------------------------------------------ */
 
 export interface IPreludeProps extends BasePromptElementProps {
@@ -45,8 +45,8 @@ export class PreludeElement extends PromptElement<IPreludeProps, void> {
                 inconsistencies, so precision matters more than volume.
                 <br />
                 <br />
-                SCOPE OF THIS REQUEST: you are given exactly one card — {card.id} (
-                {card.displayName}) — and you report matches for that category only. Other
+                SCOPE OF THIS REQUEST: you are given exactly one card - {card.id} (
+                {card.displayName}) - and you report matches for that category only. Other
                 categories are being handled by separate requests. If a span also matches a
                 different category, note that in the finding's "crossReferences" field; do not
                 emit a finding for it.
@@ -78,7 +78,7 @@ export class PreludeElement extends PromptElement<IPreludeProps, void> {
 }
 
 /* ------------------------------------------------------------------ */
-/* 2. Category — one detection card                                    */
+/* 2. Category - one detection card                                    */
 /* ------------------------------------------------------------------ */
 
 export interface ICardExampleProps extends BasePromptElementProps {
@@ -126,14 +126,14 @@ export class CategoryCardElement extends PromptElement<ICategoryCardProps, void>
                 HOW TO REASON ABOUT THIS CATEGORY:<br />
                 {card.chainOfThought}<br />
                 <br />
-                ELICITATION QUESTIONS (guidance, not an exhaustive test — a span may match this
+                ELICITATION QUESTIONS (guidance, not an exhaustive test - a span may match this
                 category without answering any of these):<br />
                 {card.elicitationQuestions.map(q => (
                     <>&nbsp;&nbsp;- {q}<br /></>
                 ))}
                 <br />
                 WORKED EXAMPLES (the negative examples define the boundary as much as the
-                positive ones — study both):<br />
+                positive ones - study both):<br />
                 {card.examples.map((example, i) => (
                     <CardExampleElement example={example} index={i + 1} />
                 ))}
@@ -154,7 +154,7 @@ export class CategoryCardElement extends PromptElement<ICategoryCardProps, void>
 }
 
 /* ------------------------------------------------------------------ */
-/* 3. Output — response format                                         */
+/* 3. Output - response format                                         */
 /* ------------------------------------------------------------------ */
 
 export interface IOutputFormatProps extends BasePromptElementProps {
@@ -175,7 +175,7 @@ export class OutputFormatElement extends PromptElement<IOutputFormatProps, void>
                 The array must conform to this schema:<br />
                 {JSON.stringify(FINDING_JSON_SCHEMA, null, 2)}<br />
                 <br />
-                Every element's "category" must be exactly "{card.category}" — the category of
+                Every element's "category" must be exactly "{card.category}" - the category of
                 the one card you were given.<br />
                 <br />
                 If no span in the supplied code matches {card.id}, respond with exactly:{' '}
@@ -186,7 +186,7 @@ export class OutputFormatElement extends PromptElement<IOutputFormatProps, void>
 }
 
 /* ------------------------------------------------------------------ */
-/* 4. Code / Task — the analysis target                                */
+/* 4. Code / Task - the analysis target                                */
 /* ------------------------------------------------------------------ */
 
 export interface ICodeTaskProps extends BasePromptElementProps {
@@ -294,7 +294,7 @@ export interface ICategoryAnalysisPromptProps extends BasePromptElementProps {
  *
  * Priorities order what survives a tight token budget, most indispensable
  * first: without the output contract the reply is unparseable, and without the
- * code there is nothing to analyze at all — so both outrank the prelude and the
+ * code there is nothing to analyze at all - so both outrank the prelude and the
  * card, whose examples are the affordable thing to lose. `flexGrow` still lets
  * the code claim whatever budget the instructions leave behind.
  */

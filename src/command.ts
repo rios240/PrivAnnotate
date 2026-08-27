@@ -3,13 +3,24 @@ import { CODE_INPUT_START, constructCategoryPrompt, ITruncationInfo } from './pr
 import { buildParseContext, parseCategoryResponse } from './parseResponse';
 import { PDC_CARDS, PdcCard } from './pdc/categories';
 import { PrivacyFinding } from './pdc/schema';
-import { replaceFindingsInRange, updateDecorations } from './misc/decorations';
+import { Chunk, codeBudgetFor, planChunks } from './chunking';
+import { locate, manifestStore, StoredFinding } from './findings/manifest';
+import { mergeForStorage, reconcile, ReconcileResult } from './findings/reconcile';
+import { persistFindings } from './decisions';
+import { reportRun } from './report';
+import { setFindings, updateDecorations } from './misc/decorations';
 
 /**
- * How many of the eight per-category requests are in flight at once. Kept small
- * so a single Analyze run doesn't burst the language-model quota.
+ * How many per-category requests are in flight at once. Kept small so a single
+ * Analyze run doesn't burst the language-model quota - with chunking a large
+ * file can queue dozens of requests.
  */
 const MAX_CONCURRENT_REQUESTS = 3;
+
+interface AnalysisUnit {
+    card: PdcCard;
+    chunk: Chunk;
+}
 
 export function registerAnalyzeCommand(context: vscode.ExtensionContext) {
   const analyzeCommand = vscode.commands.registerTextEditorCommand(
@@ -35,35 +46,57 @@ export function registerAnalyzeCommand(context: vscode.ExtensionContext) {
 
           if (cancellationToken.isCancellationRequested) return;
 
-          // Snapshot the target once so all eight categories analyze identical
-          // input even if the user scrolls while the run is in flight.
           const document = textEditor.document;
-          const range = getVisibleRange(textEditor);
-          const parseContext = buildParseContext(document, range);
 
-          // Eight requests would otherwise raise the same truncation warning.
-          // Last write wins: prompt-tsx may size an element more than once, and
-          // only the final pass reflects what actually gets sent.
+          progress.report({ message: 'Planning coverage...' });
+
+          // The whole file is analyzed, split into windows that each fit the
+          // model's context alongside one detection card.
+          const chunks = await planChunks(
+              document,
+              codeBudgetFor(model.maxInputTokens),
+              text => Promise.resolve(model.countTokens(text, cancellationToken))
+          );
+
+          if (chunks.length === 0) {
+              vscode.window.showInformationMessage('priv-audit: nothing to analyze in this file.');
+              return;
+          }
+
+          if (cancellationToken.isCancellationRequested) return;
+
+          // Eight requests per chunk would otherwise raise the same warning many
+          // times over. Last write wins: prompt-tsx may size an element more
+          // than once, and only the final pass reflects what gets sent.
           let truncation: ITruncationInfo | undefined;
           const onTruncated = (info: ITruncationInfo) => { truncation = info; };
 
+          const units: AnalysisUnit[] = chunks.flatMap(chunk =>
+              PDC_CARDS.map(card => ({ card, chunk }))
+          );
+
           let completed = 0;
-          const failures: string[] = [];
+          const failures = new Set<string>();
           const reportProgress = () =>
               progress.report({
-                  message: `Analyzed ${completed}/${PDC_CARDS.length} categories...`,
+                  message:
+                      chunks.length > 1
+                          ? `${completed}/${units.length} requests (${chunks.length} chunks)...`
+                          : `Analyzed ${completed}/${units.length} categories...`,
               });
 
           reportProgress();
 
-          const analyzeCategory = async (card: PdcCard): Promise<PrivacyFinding[]> => {
+          const analyzeUnit = async ({ card, chunk }: AnalysisUnit): Promise<PrivacyFinding[]> => {
               if (cancellationToken.isCancellationRequested) return [];
+
+              const parseContext = buildParseContext(document, chunk.range);
 
               try {
                   const messages = await constructCategoryPrompt(model, {
                       card,
                       document,
-                      range,
+                      range: chunk.range,
                       filePath: parseContext.filePath,
                       onTruncated,
                   });
@@ -83,8 +116,11 @@ export function registerAnalyzeCommand(context: vscode.ExtensionContext) {
                   return await parseCategoryResponse(response, card, parseContext);
               } catch (error) {
                   if (cancellationToken.isCancellationRequested) return [];
-                  console.error(`priv-audit: category ${card.id} failed:`, error);
-                  failures.push(card.id);
+                  console.error(
+                      `priv-audit: category ${card.id} failed on chunk ${chunk.index}/${chunk.total}:`,
+                      error
+                  );
+                  failures.add(card.id);
                   return [];
               } finally {
                   completed += 1;
@@ -92,46 +128,60 @@ export function registerAnalyzeCommand(context: vscode.ExtensionContext) {
               }
           };
 
-          const results = await runWithConcurrency(
-              PDC_CARDS,
-              MAX_CONCURRENT_REQUESTS,
-              analyzeCategory
-          );
+          const results = await runWithConcurrency(units, MAX_CONCURRENT_REQUESTS, analyzeUnit);
 
           if (cancellationToken.isCancellationRequested) return;
 
-          const findings = results.flat();
+          progress.report({ message: 'Reconciling with previous findings...' });
 
-          replaceFindingsInRange(
-              document,
-              { start: parseContext.rangeStart, end: parseContext.rangeEnd },
-              findings
-          );
+          const fresh = results.flat();
+          const previous = await loadStoredFindings(document);
+          const result = reconcile(fresh, previous);
+
+          setFindings(document.uri, result.findings);
           updateDecorations(textEditor);
 
-          if (truncation) {
-              vscode.window.showWarningMessage(
-                  `priv-audit: only ${truncation.includedLines} of ${truncation.totalLines} ` +
-                  'visible lines fit in the model context; the rest were not analyzed.'
-              );
-          }
+          const saved = await persistAnalysis(document, result, previous);
 
-          if (failures.length > 0) {
-              vscode.window.showWarningMessage(
-                  `priv-audit: ${failures.length} of ${PDC_CARDS.length} categories failed ` +
-                  `(${failures.join(', ')}). See console for details.`
-              );
-          } else if (findings.length === 0) {
-              vscode.window.showInformationMessage(
-                  'priv-audit: no privacy practices detected in the visible code.'
-              );
-          }
+          reportRun(document, result, {
+              chunks: chunks.length,
+              requests: units.length,
+              failedCategories: [...failures],
+              truncation,
+              saved,
+          });
         }
       );
     }
   );
 
   context.subscriptions.push(analyzeCommand);
+}
+
+async function loadStoredFindings(document: vscode.TextDocument): Promise<StoredFinding[]> {
+    const location = locate(document);
+    if (!location) return [];
+
+    const manifest = await manifestStore.load(location.folder);
+    return manifest.files[location.path]?.findings ?? [];
+}
+
+async function persistAnalysis(
+    document: vscode.TextDocument,
+    result: ReconcileResult,
+    previous: StoredFinding[]
+): Promise<boolean> {
+    try {
+        // Findings the run did not re-observe are retained and stamped resolved,
+        // so the manifest keeps the audit trail instead of forgetting them.
+        return await persistFindings(document, mergeForStorage(result, previous));
+    } catch (error) {
+        console.error('priv-audit: could not write the findings manifest:', error);
+        vscode.window.showErrorMessage(
+            'priv-audit: analysis finished but the manifest could not be saved. See console for details.'
+        );
+        return false;
+    }
 }
 
 /** True when the rendered prompt still carries the code under analysis. */
@@ -166,34 +216,4 @@ export async function runWithConcurrency<T, R>(
 
     await Promise.all(runners);
     return results;
-}
-
-/**
- * Returns a single Range spanning the editor's visible viewport, from the
- * first visible line through the last. If code is folded within that span,
- * its text is still included - this does not exclude folded regions, it
- * only bounds the range to what's scrolled into view vertically.
- */
-export function getVisibleRange(textEditor: vscode.TextEditor): vscode.Range {
-    const ranges = textEditor.visibleRanges;
-
-    if (ranges.length === 0) {
-        const doc = textEditor.document;
-        return new vscode.Range(
-            0, 0,
-            doc.lineCount - 1,
-            doc.lineAt(doc.lineCount - 1).text.length
-        );
-    }
-
-    const start = ranges.reduce(
-        (min, r) => (r.start.isBefore(min) ? r.start : min),
-        ranges[0].start
-    );
-    const end = ranges.reduce(
-        (max, r) => (r.end.isAfter(max) ? r.end : max),
-        ranges[0].end
-    );
-
-    return new vscode.Range(start, end);
 }

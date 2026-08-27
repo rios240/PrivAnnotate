@@ -9,14 +9,42 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "priv-audit.analyze",
         "title": "Analyze Privacy Practices",
+        "category": "PrivAudit",
         "icon": "$(shield)"
+      },
+      {
+        "command": "priv-audit.showReport",
+        "title": "Show Analysis Report",
+        "category": "PrivAudit"
+      },
+      {
+        "command": "priv-audit.toggleRejected",
+        "title": "Toggle Rejected Findings",
+        "category": "PrivAudit"
+      },
+      {
+        "command": "priv-audit.acceptFinding",
+        "title": "Accept Finding",
+        "category": "PrivAudit"
+      },
+      {
+        "command": "priv-audit.rejectFinding",
+        "title": "Reject Finding",
+        "category": "PrivAudit"
+      },
+      {
+        "command": "priv-audit.clearDecision",
+        "title": "Clear Finding Decision",
+        "category": "PrivAudit"
       }
     ],
     "menus": {
@@ -24,6 +52,20 @@
             {
                 "command": "priv-audit.analyze",
                 "group": "navigation"
+            }
+        ],
+        "commandPalette": [
+            {
+                "command": "priv-audit.acceptFinding",
+                "when": "false"
+            },
+            {
+                "command": "priv-audit.rejectFinding",
+                "when": "false"
+            },
+            {
+                "command": "priv-audit.clearDecision",
+                "when": "false"
             }
         ]
     }

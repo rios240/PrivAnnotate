@@ -3,20 +3,29 @@ import * as vscode from 'vscode';
 import { runWithConcurrency } from '../command';
 import {
     clearFindings,
+    getFinding,
     getFindings,
+    isShowingRejected,
     nextFindingId,
-    replaceFindingsInRange,
+    setFindings,
+    setShowRejected,
 } from '../misc/decorations';
 import { PrivacyFinding } from '../pdc/schema';
+import { computeFingerprint } from '../findings/fingerprint';
 
-function makeFinding(start: number, end: number): PrivacyFinding {
+function makeFinding(start: number, end: number, excerpt = 'x = request.json["x"]'): PrivacyFinding {
+    const now = new Date().toISOString();
     return {
         id: nextFindingId(),
+        fingerprint: computeFingerprint('FIRST_PARTY_COLLECTION_USE', excerpt),
         category: 'FIRST_PARTY_COLLECTION_USE',
         lineRange: { start, end },
-        excerpt: 'x = request.json["x"]',
+        excerpt,
         evidence: 'Reads user-supplied data.',
         confidence: 'high',
+        status: 'undecided',
+        firstSeen: now,
+        lastSeen: now,
     };
 }
 
@@ -75,7 +84,7 @@ suite('runWithConcurrency', () => {
     });
 });
 
-suite('replaceFindingsInRange', () => {
+suite('finding store', () => {
     let document: vscode.TextDocument;
 
     setup(async () => {
@@ -88,33 +97,68 @@ suite('replaceFindingsInRange', () => {
 
     teardown(() => clearFindings(document));
 
-    test('replaces findings overlapping the analyzed range and keeps the rest', () => {
-        replaceFindingsInRange(document, { start: 1, end: 40 }, [
-            makeFinding(2, 3),   // inside the re-analyzed range
-            makeFinding(9, 12),  // straddles its lower edge
-            makeFinding(25, 26), // outside it
-        ]);
+    test('setFindings replaces the whole file rather than accumulating', () => {
+        setFindings(document.uri, [makeFinding(2, 3, 'a = req.a'), makeFinding(9, 12, 'b = req.b')]);
+        setFindings(document.uri, [makeFinding(14, 15, 'c = req.c')]);
 
-        replaceFindingsInRange(document, { start: 10, end: 20 }, [makeFinding(14, 15)]);
-
-        const remaining = getFindings(document)
-            .map(f => `${f.lineRange.start}-${f.lineRange.end}`)
-            .sort();
-
-        assert.deepStrictEqual(remaining, ['14-15', '2-3', '25-26']);
+        assert.deepStrictEqual(
+            getFindings(document).map(f => `${f.lineRange.start}-${f.lineRange.end}`),
+            ['14-15']
+        );
     });
 
-    test('re-running over the same range refreshes rather than duplicates', () => {
-        replaceFindingsInRange(document, { start: 10, end: 20 }, [makeFinding(11, 12)]);
-        replaceFindingsInRange(document, { start: 10, end: 20 }, [makeFinding(11, 12)]);
-
-        assert.strictEqual(getFindings(document).length, 1);
-    });
-
-    test('an empty result clears that range', () => {
-        replaceFindingsInRange(document, { start: 10, end: 20 }, [makeFinding(11, 12)]);
-        replaceFindingsInRange(document, { start: 10, end: 20 }, []);
+    test('an empty result clears the file', () => {
+        setFindings(document.uri, [makeFinding(11, 12)]);
+        setFindings(document.uri, []);
 
         assert.deepStrictEqual(getFindings(document), []);
+    });
+
+    test('getFinding looks up by fingerprint', () => {
+        const finding = makeFinding(11, 12, 'lat = request.json["lat"]');
+        setFindings(document.uri, [finding]);
+
+        assert.strictEqual(getFinding(document.uri, finding.fingerprint)?.id, finding.id);
+        assert.strictEqual(getFinding(document.uri, 'deadbeefdeadbeef'), undefined);
+    });
+});
+
+suite('decoration visibility', () => {
+    let document: vscode.TextDocument;
+
+    setup(async () => {
+        document = await vscode.workspace.openTextDocument({
+            content: Array.from({ length: 40 }, (_, i) => `line ${i + 1}`).join('\n'),
+            language: 'python',
+        });
+        clearFindings(document);
+        setShowRejected(false);
+    });
+
+    teardown(() => {
+        clearFindings(document);
+        setShowRejected(false);
+    });
+
+    test('rejected findings are hidden by default and the toggle restores them', () => {
+        assert.strictEqual(isShowingRejected(), false);
+        setShowRejected(true);
+        assert.strictEqual(isShowingRejected(), true);
+    });
+
+    test('visible findings exclude rejected and resolved ones', () => {
+        const undecided = makeFinding(2, 3, 'a = req.a');
+        const accepted = { ...makeFinding(5, 6, 'b = req.b'), status: 'accepted' as const };
+        const rejected = { ...makeFinding(8, 9, 'c = req.c'), status: 'rejected' as const };
+        const resolved = { ...makeFinding(11, 12, 'd = req.d'), resolvedAt: '2026-01-01T00:00:00Z' };
+
+        setFindings(document.uri, [undecided, accepted, rejected, resolved]);
+
+        // Mirrors the filter updateDecorations applies per status.
+        const shown = getFindings(document).filter(
+            f => !f.resolvedAt && (f.status !== 'rejected' || isShowingRejected())
+        );
+
+        assert.deepStrictEqual(shown.map(f => f.excerpt).sort(), ['a = req.a', 'b = req.b']);
     });
 });
