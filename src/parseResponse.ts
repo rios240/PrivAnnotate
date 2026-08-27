@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { CategoryName, isCategoryName, CATEGORY_BY_CARD_ID, PdcCard } from './pdc/categories';
 import { downgradeConfidence, isRawFinding, PrivacyFinding, RawFinding } from './pdc/schema';
 import { nextFindingId } from './misc/decorations';
+import { computeFingerprint } from './findings/fingerprint';
 
 /** Everything the parser needs to ground a finding against real source text. */
 export interface ParseContext {
@@ -109,8 +110,11 @@ function toFinding(raw: RawFinding, card: PdcCard, ctx: ParseContext): PrivacyFi
         .map(resolveCategory)
         .filter((name): name is CategoryName => name !== undefined && name !== card.category);
 
+    const now = new Date().toISOString();
+
     return {
         id: nextFindingId(),
+        fingerprint: computeFingerprint(card.category, raw.excerpt),
         // The card decides the category, not the model - one request, one lane.
         category: card.category,
         file: ctx.filePath,
@@ -120,6 +124,11 @@ function toFinding(raw: RawFinding, card: PdcCard, ctx: ParseContext): PrivacyFi
         confidence,
         reasoning: raw.reasoning?.length ? raw.reasoning : undefined,
         crossReferences: crossReferences.length ? [...new Set(crossReferences)] : undefined,
+        // Reconciliation replaces these from the manifest when the finding is
+        // already known; a genuinely new finding starts undecided.
+        status: 'undecided',
+        firstSeen: now,
+        lastSeen: now,
     };
 }
 

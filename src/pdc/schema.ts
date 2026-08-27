@@ -18,10 +18,24 @@ export interface LineRange {
     end: number;
 }
 
+/**
+ * Whether the user has judged a finding pertinent. Findings start `undecided`;
+ * `rejected` ones are suppressed from the editor but kept in the manifest so a
+ * later run does not re-surface the same false positive.
+ */
+export const FINDING_STATUSES = ['undecided', 'accepted', 'rejected'] as const;
+export type FindingStatus = typeof FINDING_STATUSES[number];
+
+export function isFindingStatus(value: unknown): value is FindingStatus {
+    return typeof value === 'string' && (FINDING_STATUSES as readonly string[]).includes(value);
+}
+
 /** A finding after validation and grounding, ready to decorate the editor. */
 export interface PrivacyFinding {
     /** Local identifier from `nextFindingId()`; not supplied by the model. */
     id: string;
+    /** Stable identity across runs and sessions. See `computeFingerprint`. */
+    fingerprint: string;
     category: CategoryName;
     /** Workspace-relative path; omitted for untitled documents. */
     file?: string;
@@ -31,6 +45,15 @@ export interface PrivacyFinding {
     confidence: Confidence;
     reasoning?: string[];
     crossReferences?: CategoryName[];
+    status: FindingStatus;
+    /** ISO timestamps tracking when this finding was first and last observed. */
+    firstSeen: string;
+    lastSeen: string;
+    decidedAt?: string;
+    /** Set when a run no longer finds this span; kept for the audit trail. */
+    resolvedAt?: string;
+    /** True when a stored span could not be re-located in the current text. */
+    stale?: boolean;
 }
 
 /** A finding exactly as the model emits it, before validation. */

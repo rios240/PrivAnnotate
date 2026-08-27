@@ -53,6 +53,11 @@ export class Uri {
         return new Uri(`file://${path}`);
     }
 
+    static joinPath(base: Uri, ...segments: string[]): Uri {
+        const trimmed = base.value.replace(/\/+$/, '');
+        return new Uri([trimmed, ...segments].join('/'));
+    }
+
     get fsPath(): string {
         return this.value.replace(/^file:\/\//, '');
     }
@@ -60,6 +65,39 @@ export class Uri {
     toString(): string {
         return this.value;
     }
+}
+
+export class FileSystemError extends Error {
+    constructor(message: string, public readonly code: string) {
+        super(message);
+    }
+
+    static FileNotFound(path?: string): FileSystemError {
+        return new FileSystemError(`File not found: ${path ?? ''}`, 'FileNotFound');
+    }
+}
+
+/** In-memory file system backing `workspace.fs` for the Node test run. */
+const files = new Map<string, Uint8Array>();
+const directories = new Set<string>();
+const workspaceFolders: Array<{ uri: Uri; name: string; index: number }> = [];
+
+/** Test helper: registers a workspace folder and clears any previous state. */
+export function __setWorkspaceFolder(uri: Uri, name = 'workspace'): void {
+    workspaceFolders.length = 0;
+    workspaceFolders.push({ uri, name, index: 0 });
+}
+
+/** Test helper: empties the in-memory file system. */
+export function __resetFileSystem(): void {
+    files.clear();
+    directories.clear();
+}
+
+/** Test helper: reads a file written through `workspace.fs`. */
+export function __readFile(uri: Uri): string | undefined {
+    const bytes = files.get(uri.toString());
+    return bytes ? new TextDecoder().decode(bytes) : undefined;
 }
 
 export class MarkdownString {
@@ -110,12 +148,13 @@ let untitledCounter = 0;
 
 class StubTextDocument {
     readonly uri: Uri;
-    readonly isUntitled = true;
+    readonly isUntitled: boolean;
     private readonly lines: string[];
 
-    constructor(content: string, public readonly languageId: string) {
+    constructor(content: string, public readonly languageId: string, uri?: Uri) {
         untitledCounter += 1;
-        this.uri = Uri.parse(`untitled:Untitled-${untitledCounter}`);
+        this.uri = uri ?? Uri.parse(`untitled:Untitled-${untitledCounter}`);
+        this.isUntitled = uri === undefined;
         this.lines = content.split(/\r?\n/);
     }
 
@@ -147,21 +186,78 @@ class StubTextDocument {
 }
 
 export const workspace = {
-    async openTextDocument(options: { content: string; language?: string }) {
-        return new StubTextDocument(options.content, options.language ?? 'plaintext');
+    get workspaceFolders() {
+        return workspaceFolders.length > 0 ? workspaceFolders : undefined;
     },
-    asRelativePath(target: Uri | string): string {
-        return typeof target === 'string' ? target : target.fsPath;
+
+    async openTextDocument(options: { content: string; language?: string; uri?: Uri }) {
+        return new StubTextDocument(options.content, options.language ?? 'plaintext', options.uri);
+    },
+
+    getWorkspaceFolder(uri: Uri) {
+        return workspaceFolders.find(folder => uri.toString().startsWith(folder.uri.toString()));
+    },
+
+    asRelativePath(target: Uri | string, includeWorkspaceFolder = true): string {
+        const value = typeof target === 'string' ? target : target.toString();
+        const folder = workspaceFolders.find(f => value.startsWith(f.uri.toString()));
+        if (!folder) return typeof target === 'string' ? target : target.fsPath;
+
+        const relative = value.slice(folder.uri.toString().length).replace(/^\/+/, '');
+        return includeWorkspaceFolder ? `${folder.name}/${relative}` : relative;
+    },
+
+    fs: {
+        async readFile(uri: Uri): Promise<Uint8Array> {
+            const bytes = files.get(uri.toString());
+            if (!bytes) throw FileSystemError.FileNotFound(uri.toString());
+            return bytes;
+        },
+        async writeFile(uri: Uri, content: Uint8Array): Promise<void> {
+            files.set(uri.toString(), content);
+        },
+        async createDirectory(uri: Uri): Promise<void> {
+            directories.add(uri.toString());
+        },
+    },
+
+    createFileSystemWatcher(_glob: string) {
+        return {
+            onDidChange() { return { dispose() { /* no-op */ } }; },
+            onDidCreate() { return { dispose() { /* no-op */ } }; },
+            onDidDelete() { return { dispose() { /* no-op */ } }; },
+            dispose() { /* no-op */ },
+        };
     },
 };
 
 export const window = {
+    visibleTextEditors: [] as unknown[],
+
     createTextEditorDecorationType(_options: unknown) {
         return { dispose() { /* no-op */ } };
     },
-    showInformationMessage(_message: string) { /* no-op */ },
-    showWarningMessage(_message: string) { /* no-op */ },
-    showErrorMessage(_message: string) { /* no-op */ },
+    createOutputChannel(_name: string) {
+        return {
+            appendLine(_line: string) { /* no-op */ },
+            show(_preserveFocus?: boolean) { /* no-op */ },
+            dispose() { /* no-op */ },
+        };
+    },
+    // Return a thenable, as the real API does: callers chain off the result to
+    // handle the action button.
+    showInformationMessage(_message: string, ..._items: string[]) {
+        return Promise.resolve(undefined);
+    },
+    showWarningMessage(_message: string, ..._items: string[]) {
+        return Promise.resolve(undefined);
+    },
+    showErrorMessage(_message: string, ..._items: string[]) {
+        return Promise.resolve(undefined);
+    },
+    setStatusBarMessage(_message: string, _timeout?: number) {
+        return { dispose() { /* no-op */ } };
+    },
 };
 
 export const lm = {
