@@ -577,7 +577,6 @@ module.
 | `command.test.ts` | `runWithConcurrency` (limit respected, order preserved, each item once, limit > items, an error-swallowing worker), the finding store, and decoration visibility rules |
 | `parseResponse.test.ts` | `extractJsonArray` (bare, fenced, buried in prose, absent) and the full validation gauntlet including category forcing, range clamping, grounding downgrade, and cross-reference filtering |
 | `findings.test.ts` | Fingerprints, `reconcile`, `mergeForStorage`, `relocate`, manifest serialization and validation |
-| `persistence.test.ts` | **Byte-identical duplicate of `findings.test.ts`** - both files were added in the same commit; the 22 tests run twice |
 | `prompts.test.ts` | Exactly one card rendered, card content present, both exemplars, the code fence with 1-based numbering, partial-range numbering, the output contract, optional file path, truncation reporting, code surviving a tight budget, and `containsCodeInput` |
 
 99 tests pass under `npm run test:unit` - 77 distinct, given the duplicated file.
