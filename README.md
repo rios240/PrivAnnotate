@@ -9,9 +9,9 @@ Findings are surfaced as inline editor decorations, triaged with an accept/rejec
 decision, and stored in a workspace manifest (`.privaudit/findings.json`) so the audit
 trail survives restarts, edits, and code review.
 
-The goal is not vulnerability scanning. It is producing a code-level record of privacy
+The goal is to produce a code-level record of privacy
 practices that can be compared against an organization's *written* privacy policy to
-surface inconsistencies - so precision matters more than volume.
+surface inconsistencies.
 
 ---
 
