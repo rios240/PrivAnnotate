@@ -5,6 +5,7 @@ import {
     FindingStatus,
     isConfidence,
     isFindingStatus,
+    isStringArray,
     LineRange,
     PrivacyFinding,
 } from '../pdc/schema';
@@ -61,10 +62,6 @@ export function toStoredFinding(finding: PrivacyFinding): StoredFinding {
         decidedAt: finding.decidedAt,
         resolvedAt: finding.resolvedAt,
     };
-}
-
-function isStringArray(value: unknown): value is string[] {
-    return Array.isArray(value) && value.every(item => typeof item === 'string');
 }
 
 /**
@@ -198,13 +195,34 @@ export class ManifestStore {
     }
 
     /** Applies `mutate` to the folder's manifest and persists the result. */
-    async update(folder: vscode.Uri, mutate: (manifest: Manifest) => void): Promise<void> {
-        const key = folder.toString();
-        const run = (this.writeQueues.get(key) ?? Promise.resolve()).then(async () => {
+    update(folder: vscode.Uri, mutate: (manifest: Manifest) => void): Promise<void> {
+        return this.enqueue(folder, async () => {
             const manifest = await this.load(folder);
             mutate(manifest);
             await this.write(folder, manifest);
         });
+    }
+
+    /**
+     * Deletes the folder's manifest, wiping every finding and decision in it.
+     * Queued like any write, so a decision still in flight cannot resurrect the
+     * old file after the reset lands.
+     */
+    reset(folder: vscode.Uri): Promise<void> {
+        return this.enqueue(folder, async () => {
+            try {
+                await vscode.workspace.fs.delete(manifestUri(folder));
+            } catch (error) {
+                if (!isFileNotFound(error)) throw error;
+            }
+            this.cache.set(folder.toString(), emptyManifest());
+        });
+    }
+
+    /** Runs `task` after every write already queued for the folder. */
+    private enqueue(folder: vscode.Uri, task: () => Promise<void>): Promise<void> {
+        const key = folder.toString();
+        const run = (this.writeQueues.get(key) ?? Promise.resolve()).then(task);
 
         // Keep the chain alive even if one link rejects, so later writes still run.
         this.writeQueues.set(key, run.catch(() => undefined));

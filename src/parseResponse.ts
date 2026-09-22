@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { CategoryName, isCategoryName, CATEGORY_BY_CARD_ID, PdcCard } from './pdc/categories';
 import { downgradeConfidence, isRawFinding, PrivacyFinding, RawFinding } from './pdc/schema';
 import { nextFindingId } from './misc/decorations';
-import { computeFingerprint } from './findings/fingerprint';
+import { computeFingerprint, stripLinePrefix } from './findings/fingerprint';
 
 /** Everything the parser needs to ground a finding against real source text. */
 export interface ParseContext {
@@ -60,7 +60,7 @@ function normalize(text: string): string {
 function isExcerptGrounded(excerpt: string, start: number, end: number, ctx: ParseContext): boolean {
     const firstLine = excerpt
         .split(/\r?\n/)
-        .map(line => normalize(line.replace(/^\s*\d+\s*\|\s?/, '')))
+        .map(line => normalize(stripLinePrefix(line)))
         .find(line => line.length > 0);
 
     if (!firstLine) return false;

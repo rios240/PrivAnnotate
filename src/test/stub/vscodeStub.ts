@@ -219,6 +219,9 @@ export const workspace = {
         async createDirectory(uri: Uri): Promise<void> {
             directories.add(uri.toString());
         },
+        async delete(uri: Uri): Promise<void> {
+            if (!files.delete(uri.toString())) throw FileSystemError.FileNotFound(uri.toString());
+        },
     },
 
     createFileSystemWatcher(_glob: string) {
@@ -230,6 +233,13 @@ export const workspace = {
         };
     },
 };
+
+let warningResponse: string | undefined;
+
+/** Test helper: the button the next `showWarningMessage` resolves to. */
+export function __setWarningResponse(choice: string | undefined): void {
+    warningResponse = choice;
+}
 
 export const window = {
     visibleTextEditors: [] as unknown[],
@@ -249,8 +259,8 @@ export const window = {
     showInformationMessage(_message: string, ..._items: string[]) {
         return Promise.resolve(undefined);
     },
-    showWarningMessage(_message: string, ..._items: string[]) {
-        return Promise.resolve(undefined);
+    showWarningMessage(_message: string, ..._items: unknown[]) {
+        return Promise.resolve(warningResponse);
     },
     showErrorMessage(_message: string, ..._items: string[]) {
         return Promise.resolve(undefined);
@@ -268,6 +278,9 @@ export const lm = {
 
 export const commands = {
     registerTextEditorCommand(_id: string, _handler: unknown) {
+        return { dispose() { /* no-op */ } };
+    },
+    registerCommand(_id: string, _handler: unknown) {
         return { dispose() { /* no-op */ } };
     },
 };

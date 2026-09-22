@@ -12,6 +12,24 @@ development history, dated by the commit that introduced it.
 The current state of `main`: a per-category privacy analysis command with grounded JSON
 findings, accept/reject triage, and a persistent workspace manifest.
 
+### Added - 2026-09-22
+
+* **Toggle All Findings.** `priv-audit.toggleFindings` hides or shows every finding
+  decoration across all editors without touching the manifest; the rejected-findings
+  toggle still applies once findings are shown again (`src/misc/decorations.ts`).
+* **Reset Findings Manifest.** `priv-audit.resetManifest` asks for confirmation, then
+  deletes `.privaudit/findings.json` in every workspace folder and clears all in-memory
+  findings. The delete is queued behind in-flight writes so a pending decision cannot
+  resurrect the file (`ManifestStore.reset`, `src/decisions.ts`).
+
+### Fixed - 2026-09-22
+
+* Deleting or reverting the manifest outside the extension no longer leaves stale
+  decorations on screen: `loadFindingsFor` now clears a workspace file's findings when
+  the manifest has no entry for it.
+* Removed the unused `@types/jest` runtime dependency (the tests run on mocha).
+* Deduplicated the `isStringArray` guard and the `"N| "` line-prefix regex.
+
 ### Added - 2026-08-27
 
 * **Persistent findings manifest.** `.privaudit/findings.json` per workspace folder,

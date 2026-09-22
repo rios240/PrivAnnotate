@@ -81,14 +81,14 @@ current text, and `updateDecorations` paints it.
 | `src/chunking.ts` | 126 | Splitting a file into windows that fit the context budget |
 | `src/prompts.tsx` | 341 | prompt-tsx elements: prelude, card, output contract, code task |
 | `src/parseResponse.ts` | 186 | Model text --> validated, grounded `PrivacyFinding[]` |
-| `src/decisions.ts` | 156 | Accept/reject/undo commands, hydration, persistence entry point |
+| `src/decisions.ts` | 219 | Accept/reject/undo, view-toggle and reset commands, hydration, persistence entry point |
 | `src/report.ts` | 128 | Output channel report and summary notification |
 | `src/pdc/categories.ts` | 632 | The eight detection cards (framework content) |
 | `src/pdc/schema.ts` | 156 | Finding types, type guards, the JSON schema sent to the model |
-| `src/findings/fingerprint.ts` | 35 | Excerpt normalization, fingerprint, relocation anchor |
+| `src/findings/fingerprint.ts` | 40 | Excerpt normalization, fingerprint, relocation anchor |
 | `src/findings/reconcile.ts` | 157 | Fresh-vs-stored merge, storage merge, span relocation |
-| `src/findings/manifest.ts` | 240 | Manifest types, validation, (de)serialization, `ManifestStore` |
-| `src/misc/decorations.ts` | 248 | In-memory finding store, decoration types, hover markdown |
+| `src/findings/manifest.ts` | 258 | Manifest types, validation, (de)serialization, `ManifestStore` |
+| `src/misc/decorations.ts` | 281 | In-memory finding store, decoration types, hover markdown |
 | `src/test/` | ~1550 | Mocha TDD suites plus the `vscode` stub |
 
 ## 3. Core types
@@ -145,7 +145,7 @@ cannot drift apart.
 
 ## 4. The card deck
 
-`src/pdc/categories.ts` is framework content, not logic. It exports:
+`src/pdc/categories.ts` is framework content, it exports:
 
 * `CATEGORY_NAMES` / `CategoryName` / `isCategoryName` - the eight-category enum.
 * `PdcCard` - `{ id, category, displayName, baseDescription, chainOfThought,
@@ -431,6 +431,9 @@ One instance is exported as `manifestStore`.
   so overlapping read-modify-write cycles would otherwise lose decisions. The chain is
   kept alive with `.catch(() => undefined)` so one failure does not block later writes.
 * `update(folder, mutate)` - load, mutate, write, re-cache.
+* `reset(folder)` - delete the manifest file (a missing file is fine) and cache an empty
+  manifest. It goes through the same per-folder queue as `update`, so a decision write
+  already in flight lands first and cannot resurrect the file afterwards.
 * `invalidate(folder?)` - drop cached state so the next load re-reads from disk; used by
   the file watcher.
 
@@ -448,11 +451,16 @@ exactly the "cannot be persisted" case surfaced in the report as
 * `hydrate(document, stored)` - maps stored findings to runtime findings, relocating each
   span and flagging staleness.
 * `loadFindingsFor(document)` - manifest --> `hydrate` --> `setFindings`. Returns false when
-  the document has no manifest entry.
+  the document has no manifest entry, and in that case also clears the document's
+  in-memory findings - so a manifest that was reset, deleted, or reverted stops
+  decorating the editor. Untitled and out-of-workspace documents are left alone.
 * `persistFindings(document, findings)` - replaces the file's entry wholesale and stamps
   `lastAnalyzedAt`. Returns false when the document cannot be located in a workspace.
 * `registerDecisionCommands(context)` - registers `acceptFinding`, `rejectFinding`,
-  `clearDecision`, and `toggleRejected`.
+  `clearDecision`, `toggleRejected`, `toggleFindings`, and `resetManifest`.
+* `resetManifest()` - behind a modal confirmation, calls `ManifestStore.reset` for every
+  workspace folder (settling all of them, so one failure does not leave the rest
+  half-reset), then `clearAllFindings()` and `repaintVisibleEditors()`.
 
 `setStatus(args, status)` is the shared implementation. Arguments arrive from a hover's
 `command:` link as `{ uri, fingerprint }` and are validated by `isDecisionArgs`. It
@@ -467,8 +475,8 @@ warning if the file lives outside a workspace folder.
 ### Store
 
 `findingsByDocument: Map<string /* uri */, PrivacyFinding[]>`, with `setFindings`
-(replaces wholesale), `getFindings`, `getFinding(uri, fingerprint)`, `clearFindings`, and
-the monotonic `nextFindingId()`.
+(replaces wholesale), `getFindings`, `getFinding(uri, fingerprint)`, `clearFindings`,
+`clearAllFindings` (every document, used by reset), and the monotonic `nextFindingId()`.
 
 ### Decoration types
 
@@ -485,13 +493,22 @@ rejected findings are painted at all. They are hidden by default - that is the p
 rejecting one - and the toggle exists so a mistaken rejection is reversible from the
 editor rather than only by hand-editing the manifest.
 
+`showFindings` (toggled by `priv-audit.toggleFindings`) is the master switch above it:
+while off, no status is painted at all. It is a view preference only - the store and
+manifest are untouched, and turning it back on restores exactly what was painted, with
+rejected findings still following `showRejected`. Both flags are applied in one place,
+`visibleFindings(findings, status)`. `repaintVisibleEditors()` repaints every visible
+editor after either toggle or a reset.
+
 ### `updateDecorations(textEditor)`
 
 Recomputes from the full store and applies in one shot per status -
 `setDecorations` always replaces the entire set for a type, so recomputing from scratch
 is correct.
 
-For each status: filter to that status excluding `resolvedAt` entries, merge overlapping
+For each status: take `visibleFindings(findings, status)` (that status, excluding
+`resolvedAt` entries, subject to both view toggles - a hidden status still gets an empty
+`setDecorations` call, which is what clears it), merge overlapping
 spans with `mergeOverlappingFindings` (sort by start, then a standard interval merge with
 a running group end), and emit one `DecorationOption` per group with a range, a hover, and
 an `after` badge. The badge is the card ID for a single finding, or a count for a group;
@@ -574,12 +591,13 @@ module.
 | --- | --- |
 | `categories.test.ts` | Deck integrity: eight categories, valid enums, required prompt fields, a positive and a negative exemplar per card, cross-references pointing at real and other cards, `getCard` / `CATEGORY_BY_CARD_ID` round-trips |
 | `chunking.test.ts` | Budget arithmetic, single-chunk fit, splitting, full coverage, overlap, per-chunk budget, termination on very long lines, single-line files |
-| `command.test.ts` | `runWithConcurrency` (limit respected, order preserved, each item once, limit > items, an error-swallowing worker), the finding store, and decoration visibility rules |
+| `command.test.ts` | `runWithConcurrency` (limit respected, order preserved, each item once, limit > items, an error-swallowing worker), the finding store including `clearAllFindings`, and `visibleFindings` under both view toggles |
 | `parseResponse.test.ts` | `extractJsonArray` (bare, fenced, buried in prose, absent) and the full validation gauntlet including category forcing, range clamping, grounding downgrade, and cross-reference filtering |
 | `findings.test.ts` | Fingerprints, `reconcile`, `mergeForStorage`, `relocate`, manifest serialization and validation |
+| `manifestStore.test.ts` | `ManifestStore.reset` (deletes the file, tolerates a missing one, runs after a queued write), the `resetManifest` command (cancel keeps everything, confirm wipes file and store), and `loadFindingsFor` clearing findings with no manifest entry. Uses the stub's in-memory file system, so it is skipped under `npm test` |
 | `prompts.test.ts` | Exactly one card rendered, card content present, both exemplars, the code fence with 1-based numbering, partial-range numbering, the output contract, optional file path, truncation reporting, code surviving a tight budget, and `containsCodeInput` |
 
-99 tests pass under `npm run test:unit` - 77 distinct, given the duplicated file.
+90 tests pass under `npm run test:unit`.
 
 ## 17. Design decisions worth knowing
 

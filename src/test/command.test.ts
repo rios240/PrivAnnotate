@@ -3,12 +3,16 @@ import * as vscode from 'vscode';
 import { runWithConcurrency } from '../command';
 import {
     clearFindings,
+    clearAllFindings,
     getFinding,
     getFindings,
+    isShowingFindings,
     isShowingRejected,
     nextFindingId,
     setFindings,
+    setShowFindings,
     setShowRejected,
+    visibleFindings,
 } from '../misc/decorations';
 import { PrivacyFinding } from '../pdc/schema';
 import { computeFingerprint } from '../findings/fingerprint';
@@ -121,44 +125,69 @@ suite('finding store', () => {
         assert.strictEqual(getFinding(document.uri, finding.fingerprint)?.id, finding.id);
         assert.strictEqual(getFinding(document.uri, 'deadbeefdeadbeef'), undefined);
     });
+
+    test('clearAllFindings empties every document', async () => {
+        const other = await vscode.workspace.openTextDocument({ content: 'x = 1', language: 'python' });
+        setFindings(document.uri, [makeFinding(2, 3)]);
+        setFindings(other.uri, [makeFinding(1, 1)]);
+
+        clearAllFindings();
+
+        assert.deepStrictEqual(getFindings(document), []);
+        assert.deepStrictEqual(getFindings(other), []);
+    });
 });
 
 suite('decoration visibility', () => {
-    let document: vscode.TextDocument;
+    const undecided = makeFinding(2, 3, 'a = req.a');
+    const accepted = { ...makeFinding(5, 6, 'b = req.b'), status: 'accepted' as const };
+    const rejected = { ...makeFinding(8, 9, 'c = req.c'), status: 'rejected' as const };
+    const resolved = { ...makeFinding(11, 12, 'd = req.d'), resolvedAt: '2026-01-01T00:00:00Z' };
+    const all = [undecided, accepted, rejected, resolved];
 
-    setup(async () => {
-        document = await vscode.workspace.openTextDocument({
-            content: Array.from({ length: 40 }, (_, i) => `line ${i + 1}`).join('\n'),
-            language: 'python',
-        });
-        clearFindings(document);
+    const shown = () =>
+        (['undecided', 'accepted', 'rejected'] as const)
+            .flatMap(status => visibleFindings(all, status))
+            .map(f => f.excerpt)
+            .sort();
+
+    setup(() => {
         setShowRejected(false);
+        setShowFindings(true);
     });
 
     teardown(() => {
-        clearFindings(document);
         setShowRejected(false);
+        setShowFindings(true);
     });
 
-    test('rejected findings are hidden by default and the toggle restores them', () => {
+    test('findings are shown and rejected ones hidden by default', () => {
+        assert.strictEqual(isShowingFindings(), true);
         assert.strictEqual(isShowingRejected(), false);
-        setShowRejected(true);
-        assert.strictEqual(isShowingRejected(), true);
     });
 
-    test('visible findings exclude rejected and resolved ones', () => {
-        const undecided = makeFinding(2, 3, 'a = req.a');
-        const accepted = { ...makeFinding(5, 6, 'b = req.b'), status: 'accepted' as const };
-        const rejected = { ...makeFinding(8, 9, 'c = req.c'), status: 'rejected' as const };
-        const resolved = { ...makeFinding(11, 12, 'd = req.d'), resolvedAt: '2026-01-01T00:00:00Z' };
+    test('shows undecided and accepted findings, never resolved ones', () => {
+        assert.deepStrictEqual(shown(), ['a = req.a', 'b = req.b']);
+    });
 
-        setFindings(document.uri, [undecided, accepted, rejected, resolved]);
+    test('rejected findings appear only while the rejected toggle is on', () => {
+        setShowRejected(true);
+        assert.deepStrictEqual(shown(), ['a = req.a', 'b = req.b', 'c = req.c']);
+    });
 
-        // Mirrors the filter updateDecorations applies per status.
-        const shown = getFindings(document).filter(
-            f => !f.resolvedAt && (f.status !== 'rejected' || isShowingRejected())
-        );
+    test('hiding all findings hides every status, rejected toggle included', () => {
+        setShowRejected(true);
+        setShowFindings(false);
+        assert.deepStrictEqual(shown(), []);
+    });
 
-        assert.deepStrictEqual(shown.map(f => f.excerpt).sort(), ['a = req.a', 'b = req.b']);
+    test('showing findings again restores exactly what was hidden', () => {
+        setShowFindings(false);
+        setShowFindings(true);
+        assert.deepStrictEqual(shown(), ['a = req.a', 'b = req.b']);
+    });
+
+    test('filters by the requested status only', () => {
+        assert.deepStrictEqual(visibleFindings(all, 'accepted').map(f => f.excerpt), ['b = req.b']);
     });
 });
