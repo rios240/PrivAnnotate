@@ -125,7 +125,9 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test",
-    "test:unit": "npm run compile && mocha --ui tdd --require ./out/test/stub/register.js \"out/test/**/*.test.js\""
+    "test:unit": "npm run compile && mocha --ui tdd --require ./out/test/stub/register.js \"out/test/**/*.test.js\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\""
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -135,6 +137,7 @@
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.39.3",
     "mocha": "11.7.6",
+    "prettier": "^3.9.8",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1"
   },
