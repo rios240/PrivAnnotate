@@ -10,7 +10,7 @@ import { registerHoverProvider } from './ui/hover';
 import { disposeReport } from './ui/report';
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('PrivAudit is now active.');
+    console.log('PrivAnnotate is now active.');
 
     registerAnalyzeCommand(context);
     registerDecisionCommands(context);
@@ -61,7 +61,7 @@ async function restore(editor: vscode.TextEditor): Promise<void> {
         hydratedAt.set(key, version);
         updateDecorations(editor);
     } catch (error) {
-        console.error('priv-audit: could not restore findings for', key, error);
+        console.error('priv-annotate: could not restore findings for', key, error);
     }
 }
 

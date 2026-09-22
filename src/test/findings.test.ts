@@ -149,7 +149,7 @@ suite('reconcile', () => {
         const result = reconcile([fresh('a = req.a')], previous, NOW);
         const merged = mergeForStorage(result, previous, NOW);
 
-        assert.strictEqual(merged.length, 2, 'the audit trail should not lose entries');
+        assert.strictEqual(merged.length, 2, 'the annotate trail should not lose entries');
         const gone = merged.find(f => f.excerpt === 'b = req.b');
         assert.strictEqual(gone?.resolvedAt, NOW);
         assert.strictEqual(merged.find(f => f.excerpt === 'a = req.a')?.resolvedAt, undefined);

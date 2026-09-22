@@ -40,11 +40,11 @@ export function endAnalysis(uri: vscode.Uri): void {
 
 export function registerAnalyzeCommand(context: vscode.ExtensionContext) {
     const analyzeCommand = vscode.commands.registerTextEditorCommand(
-        'priv-audit.analyze',
+        'priv-annotate.analyze',
         async (textEditor: vscode.TextEditor) => {
             const uri = textEditor.document.uri;
             if (!tryBeginAnalysis(uri)) {
-                vscode.window.showInformationMessage('priv-audit: this file is already being analyzed.');
+                vscode.window.showInformationMessage('priv-annotate: this file is already being analyzed.');
                 return;
             }
 
@@ -81,7 +81,7 @@ async function analyze(textEditor: vscode.TextEditor): Promise<void> {
                     ? `${settings.modelVendor}/${settings.modelFamily}`
                     : settings.modelVendor;
                 vscode.window.showErrorMessage(
-                    `priv-audit: no language model found for "${wanted}". Check the privAudit.model settings.`
+                    `priv-annotate: no language model found for "${wanted}". Check the privAnnotate.model settings.`
                 );
                 return;
             }
@@ -107,7 +107,7 @@ async function analyze(textEditor: vscode.TextEditor): Promise<void> {
             );
 
             if (chunks.length === 0) {
-                vscode.window.showInformationMessage('priv-audit: nothing to analyze in this file.');
+                vscode.window.showInformationMessage('priv-annotate: nothing to analyze in this file.');
                 return;
             }
 
@@ -175,7 +175,7 @@ async function analyze(textEditor: vscode.TextEditor): Promise<void> {
                         return [];
                     }
                     console.error(
-                        `priv-audit: category ${rule.id} failed on chunk ${chunk.index}/${chunk.total}:`,
+                        `priv-annotate: category ${rule.id} failed on chunk ${chunk.index}/${chunk.total}:`,
                         error
                     );
                     failures.add(rule.id);
@@ -226,12 +226,12 @@ async function persistAnalysis(
 ): Promise<boolean> {
     try {
         // Findings the run did not re-observe are retained and stamped resolved,
-        // so the manifest keeps the audit trail instead of forgetting them.
+        // so the manifest keeps the annotate trail instead of forgetting them.
         return await persistFindings(document, mergeForStorage(result, previous));
     } catch (error) {
-        console.error('priv-audit: could not write the findings manifest:', error);
+        console.error('priv-annotate: could not write the findings manifest:', error);
         vscode.window.showErrorMessage(
-            'priv-audit: analysis finished but the manifest could not be saved. See console for details.'
+            'priv-annotate: analysis finished but the manifest could not be saved. See console for details.'
         );
         return false;
     }

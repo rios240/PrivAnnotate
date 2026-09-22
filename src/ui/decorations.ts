@@ -73,7 +73,7 @@ export function disposeDecorations(): void {
 /**
  * The findings of one status that should be painted, given the current view
  * toggles. Resolved findings are never painted; they live on only in the
- * manifest's audit trail.
+ * manifest's annotate trail.
  */
 export function visibleFindings(findings: PrivacyFinding[], status: FindingStatus): PrivacyFinding[] {
     if (!showFindings) {

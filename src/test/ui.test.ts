@@ -173,7 +173,7 @@ suite('hover', () => {
 
         assert.ok(md.value.includes('[FP-01]'));
         assert.ok(md.value.includes('Reads user-supplied data.'));
-        assert.ok(md.value.includes('command:priv-audit.acceptFinding'));
-        assert.ok(md.value.includes('command:priv-audit.rejectFinding'));
+        assert.ok(md.value.includes('command:priv-annotate.acceptFinding'));
+        assert.ok(md.value.includes('command:priv-annotate.rejectFinding'));
     });
 });

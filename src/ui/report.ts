@@ -19,7 +19,7 @@ export interface RunContext {
 let channel: vscode.OutputChannel | undefined;
 
 function getChannel(): vscode.OutputChannel {
-    channel ??= vscode.window.createOutputChannel('PrivAudit');
+    channel ??= vscode.window.createOutputChannel('PrivAnnotate');
     return channel;
 }
 
@@ -128,7 +128,7 @@ function showSummary(result: ReconcileResult, context: RunContext): void {
     const failed =
         context.failedCategories.length > 0 ? ` · ${context.failedCategories.length} categories failed` : '';
 
-    const message = `priv-audit: ${summary}${failed}.`;
+    const message = `priv-annotate: ${summary}${failed}.`;
     const show = 'Show report';
 
     const notify =

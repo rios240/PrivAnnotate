@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 /**
  * Default lines of context repeated between adjacent chunks (overridable with
- * the `privAudit.analysis.chunkOverlapLines` setting), so a practice that spans a
+ * the `privAnnotate.analysis.chunkOverlapLines` setting), so a practice that spans a
  * boundary is fully visible in at least one chunk. Duplicate findings from the
  * overlap are collapsed by fingerprint during reconciliation.
  */

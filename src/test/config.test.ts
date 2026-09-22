@@ -49,7 +49,7 @@ suite('settings', () => {
         assert.strictEqual(normalizeSettings({ 'model.vendor': '' }).modelVendor, 'copilot');
     });
 
-    (setConfiguration ? test : test.skip)('getSettings reads the privAudit section', () => {
+    (setConfiguration ? test : test.skip)('getSettings reads the privAnnotate section', () => {
         setConfiguration!({ 'model.vendor': 'other', 'analysis.maxConcurrentRequests': 2 });
         try {
             const settings = getSettings();

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { CHUNK_OVERLAP_LINES } from './analysis/chunking';
 
-export const CONFIG_SECTION = 'privAudit';
+export const CONFIG_SECTION = 'privAnnotate';
 
 /** Resolved, range-checked settings. See `contributes.configuration` in package.json. */
 export interface Settings {

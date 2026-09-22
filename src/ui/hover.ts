@@ -40,9 +40,9 @@ function commandLink(command: string, uri: vscode.Uri, fingerprint: string, labe
 }
 
 function decisionLinks(uri: vscode.Uri, finding: PrivacyFinding): string {
-    const accept = commandLink('priv-audit.acceptFinding', uri, finding.fingerprint, '$(check) Accept');
-    const reject = commandLink('priv-audit.rejectFinding', uri, finding.fingerprint, '$(x) Reject');
-    const undo = commandLink('priv-audit.clearDecision', uri, finding.fingerprint, '$(discard) Undo');
+    const accept = commandLink('priv-annotate.acceptFinding', uri, finding.fingerprint, '$(check) Accept');
+    const reject = commandLink('priv-annotate.rejectFinding', uri, finding.fingerprint, '$(x) Reject');
+    const undo = commandLink('priv-annotate.clearDecision', uri, finding.fingerprint, '$(discard) Undo');
 
     switch (finding.status) {
         case 'accepted':

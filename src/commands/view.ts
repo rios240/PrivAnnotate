@@ -9,8 +9,8 @@ import {
 import { showReport } from '../ui/report';
 
 /** `when`-clause keys mirroring the view toggles, for menus and keybindings. */
-export const CONTEXT_FINDINGS_VISIBLE = 'privAudit.findingsVisible';
-export const CONTEXT_REJECTED_VISIBLE = 'privAudit.rejectedVisible';
+export const CONTEXT_FINDINGS_VISIBLE = 'privAnnotate.findingsVisible';
+export const CONTEXT_REJECTED_VISIBLE = 'privAnnotate.rejectedVisible';
 
 /** Publishes the current toggle state to VS Code's context-key service. */
 export function syncViewContext(): void {
@@ -23,24 +23,24 @@ export function registerViewCommands(context: vscode.ExtensionContext) {
     syncViewContext();
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('priv-audit.showReport', showReport),
-        vscode.commands.registerCommand('priv-audit.toggleRejected', () => {
+        vscode.commands.registerCommand('priv-annotate.showReport', showReport),
+        vscode.commands.registerCommand('priv-annotate.toggleRejected', () => {
             setShowRejected(!isShowingRejected());
             syncViewContext();
             repaintVisibleEditors();
             vscode.window.setStatusBarMessage(
                 isShowingRejected()
-                    ? 'PrivAudit: showing rejected findings'
-                    : 'PrivAudit: hiding rejected findings',
+                    ? 'PrivAnnotate: showing rejected findings'
+                    : 'PrivAnnotate: hiding rejected findings',
                 3000
             );
         }),
-        vscode.commands.registerCommand('priv-audit.toggleFindings', () => {
+        vscode.commands.registerCommand('priv-annotate.toggleFindings', () => {
             setShowFindings(!isShowingFindings());
             syncViewContext();
             repaintVisibleEditors();
             vscode.window.setStatusBarMessage(
-                isShowingFindings() ? 'PrivAudit: showing all findings' : 'PrivAudit: hiding all findings',
+                isShowingFindings() ? 'PrivAnnotate: showing all findings' : 'PrivAnnotate: hiding all findings',
                 3000
             );
         })

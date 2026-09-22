@@ -89,7 +89,7 @@ export function reconcile(
 /**
  * Merges a run's findings with the manifest entries it did not re-observe.
  * Entries missing from the run are retained and stamped `resolvedAt`, so the
- * manifest keeps the full audit trail rather than silently forgetting them.
+ * manifest keeps the full annotate trail rather than silently forgetting them.
  */
 export function mergeForStorage(
     result: ReconcileResult,

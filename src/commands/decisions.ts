@@ -20,14 +20,14 @@ function isDecisionArgs(value: unknown): value is DecisionArgs {
 
 async function setStatus(args: unknown, status: FindingStatus): Promise<void> {
     if (!isDecisionArgs(args)) {
-        console.warn('priv-audit: decision command invoked without a finding reference.');
+        console.warn('priv-annotate: decision command invoked without a finding reference.');
         return;
     }
 
     const uri = vscode.Uri.parse(args.uri);
     const finding = getFinding(uri, args.fingerprint);
     if (!finding) {
-        vscode.window.showWarningMessage('priv-audit: that finding is no longer loaded.');
+        vscode.window.showWarningMessage('priv-annotate: that finding is no longer loaded.');
         return;
     }
 
@@ -46,7 +46,7 @@ async function setStatus(args: unknown, status: FindingStatus): Promise<void> {
     const location = locate(document);
     if (!location) {
         vscode.window.showWarningMessage(
-            'priv-audit: decisions on files outside a workspace folder cannot be saved.'
+            'priv-annotate: decisions on files outside a workspace folder cannot be saved.'
         );
         return;
     }
@@ -65,15 +65,15 @@ async function setStatus(args: unknown, status: FindingStatus): Promise<void> {
             stored.decidedAt = decidedAt;
         });
     } catch (error) {
-        console.error('priv-audit: could not persist decision:', error);
-        vscode.window.showErrorMessage('priv-audit: could not save that decision. See console for details.');
+        console.error('priv-annotate: could not persist decision:', error);
+        vscode.window.showErrorMessage('priv-annotate: could not save that decision. See console for details.');
     }
 }
 
 export function registerDecisionCommands(context: vscode.ExtensionContext) {
     context.subscriptions.push(
-        vscode.commands.registerCommand('priv-audit.acceptFinding', args => setStatus(args, 'accepted')),
-        vscode.commands.registerCommand('priv-audit.rejectFinding', args => setStatus(args, 'rejected')),
-        vscode.commands.registerCommand('priv-audit.clearDecision', args => setStatus(args, 'undecided'))
+        vscode.commands.registerCommand('priv-annotate.acceptFinding', args => setStatus(args, 'accepted')),
+        vscode.commands.registerCommand('priv-annotate.rejectFinding', args => setStatus(args, 'rejected')),
+        vscode.commands.registerCommand('priv-annotate.clearDecision', args => setStatus(args, 'undecided'))
     );
 }

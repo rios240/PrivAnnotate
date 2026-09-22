@@ -90,11 +90,11 @@ function toFinding(raw: RawFinding, rule: PrivacyRule, ctx: ParseContext): Priva
     const end = Math.round(raw.lineRange.end);
 
     if (start > end) {
-        console.warn(`priv-audit: [${rule.id}] dropping finding with inverted line range`, raw.lineRange);
+        console.warn(`priv-annotate: [${rule.id}] dropping finding with inverted line range`, raw.lineRange);
         return undefined;
     }
     if (end < ctx.rangeStart || start > ctx.rangeEnd) {
-        console.warn(`priv-audit: [${rule.id}] dropping finding outside the analyzed range`, raw.lineRange);
+        console.warn(`priv-annotate: [${rule.id}] dropping finding outside the analyzed range`, raw.lineRange);
         return undefined;
     }
 
@@ -104,7 +104,7 @@ function toFinding(raw: RawFinding, rule: PrivacyRule, ctx: ParseContext): Priva
     let confidence = raw.confidence;
     if (!isExcerptGrounded(raw.excerpt, clampedStart, clampedEnd, ctx)) {
         console.warn(
-            `priv-audit: [${rule.id}] excerpt not found at lines ${clampedStart}-${clampedEnd}; ` +
+            `priv-annotate: [${rule.id}] excerpt not found at lines ${clampedStart}-${clampedEnd}; ` +
                 'downgrading confidence'
         );
         confidence = downgradeConfidence(confidence);
@@ -142,7 +142,7 @@ function toFinding(raw: RawFinding, rule: PrivacyRule, ctx: ParseContext): Priva
 export function parseCategoryFindings(text: string, rule: PrivacyRule, ctx: ParseContext): PrivacyFinding[] {
     const json = extractJsonArray(text);
     if (json === undefined) {
-        console.warn(`priv-audit: [${rule.id}] response contained no JSON array:`, text.slice(0, 200));
+        console.warn(`priv-annotate: [${rule.id}] response contained no JSON array:`, text.slice(0, 200));
         return [];
     }
 
@@ -150,19 +150,19 @@ export function parseCategoryFindings(text: string, rule: PrivacyRule, ctx: Pars
     try {
         parsed = JSON.parse(json);
     } catch (error) {
-        console.warn(`priv-audit: [${rule.id}] malformed JSON response:`, json.slice(0, 200), error);
+        console.warn(`priv-annotate: [${rule.id}] malformed JSON response:`, json.slice(0, 200), error);
         return [];
     }
 
     if (!Array.isArray(parsed)) {
-        console.warn(`priv-audit: [${rule.id}] expected a JSON array, got:`, typeof parsed);
+        console.warn(`priv-annotate: [${rule.id}] expected a JSON array, got:`, typeof parsed);
         return [];
     }
 
     const findings: PrivacyFinding[] = [];
     for (const entry of parsed) {
         if (!isRawFinding(entry)) {
-            console.warn(`priv-audit: [${rule.id}] skipping element that does not match the schema:`, entry);
+            console.warn(`priv-annotate: [${rule.id}] skipping element that does not match the schema:`, entry);
             continue;
         }
         const finding = toFinding(entry, rule, ctx);

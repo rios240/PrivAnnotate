@@ -4,7 +4,7 @@ import { clearAllFindings } from '../findings/store';
 import { repaintVisibleEditors } from '../ui/decorations';
 
 export function registerManifestCommands(context: vscode.ExtensionContext) {
-    context.subscriptions.push(vscode.commands.registerCommand('priv-audit.resetManifest', resetManifest));
+    context.subscriptions.push(vscode.commands.registerCommand('priv-annotate.resetManifest', resetManifest));
 }
 
 /**
@@ -16,14 +16,14 @@ export async function resetManifest(): Promise<void> {
     const folders = vscode.workspace.workspaceFolders ?? [];
     if (folders.length === 0) {
         vscode.window.showInformationMessage(
-            'priv-audit: open a workspace folder to reset its findings manifest.'
+            'priv-annotate: open a workspace folder to reset its findings manifest.'
         );
         return;
     }
 
     const confirm = 'Reset';
     const choice = await vscode.window.showWarningMessage(
-        'Delete all PrivAudit findings and accept/reject decisions in this workspace? This cannot be undone.',
+        'Delete all PrivAnnotate findings and accept/reject decisions in this workspace? This cannot be undone.',
         { modal: true },
         confirm
     );
@@ -42,15 +42,15 @@ export async function resetManifest(): Promise<void> {
     if (failed.length > 0) {
         results.forEach(result => {
             if (result.status === 'rejected') {
-                console.error('priv-audit: could not reset the findings manifest:', result.reason);
+                console.error('priv-annotate: could not reset the findings manifest:', result.reason);
             }
         });
         vscode.window.showErrorMessage(
-            `priv-audit: could not reset the manifest in ${failed.map(f => f.name).join(', ')}. ` +
+            `priv-annotate: could not reset the manifest in ${failed.map(f => f.name).join(', ')}. ` +
                 'See console for details.'
         );
         return;
     }
 
-    vscode.window.showInformationMessage('priv-audit: findings manifest reset; all findings cleared.');
+    vscode.window.showInformationMessage('priv-annotate: findings manifest reset; all findings cleared.');
 }

@@ -1,6 +1,6 @@
-# PrivAudit architecture
+# PrivAnnotate architecture
 
-PrivAudit reads the file open in the editor, asks a language model which *data practices*
+PrivAnnotate reads the file open in the editor, asks a language model which *data practices*
 it implements (collecting user data, sharing it with third parties, retention, security,
 AI use, and so on), and shows the answers as highlighted lines that the user accepts or
 rejects. Findings and decisions persist in a JSON manifest committed with the code.
@@ -18,7 +18,7 @@ flowchart LR
     C --> D[Model]
     D --> E[Parse and ground]
     E --> F[Reconcile with manifest]
-    F --> G[(.privaudit/findings.json)]
+    F --> G[(.privannotate/findings.json)]
     F --> H[Store]
     H --> I[Decorations and hovers]
     F --> J[Run report]
@@ -35,7 +35,7 @@ flowchart LR
 4. **Reconcile.** Fresh findings are matched to stored ones by a content fingerprint, so
    accept/reject decisions carry across runs and edits.
 5. **Persist, paint, report.** The manifest is updated, the editor is repainted, and a
-   run summary goes to the *PrivAudit* output channel.
+   run summary goes to the *PrivAnnotate* output channel.
 
 On a later session the flow runs from the other end: the manifest is read, each stored
 span is re-located in the current text ("hydrated"), and the result is painted.
@@ -119,7 +119,7 @@ changing the code produces a new finding.
 and confidence come from the new run; status and history (`firstSeen`, `decidedAt`) come from
 the manifest. It sorts results into *added*, *persisted*, *suppressed* (previously rejected),
 *reopened* (previously resolved) and *resolved* (not seen this run). `mergeForStorage` keeps
-the resolved ones, marked with `resolvedAt`, so the manifest is an audit trail rather than
+the resolved ones, marked with `resolvedAt`, so the manifest is an annotate trail rather than
 a cache.
 
 `relocate` finds where a stored span sits in the current text by matching the excerpt's first
@@ -130,7 +130,7 @@ run during which the document was edited.
 
 ### The manifest
 
-Each workspace folder gets its own `.privaudit/findings.json`, keyed by path relative to that
+Each workspace folder gets its own `.privannotate/findings.json`, keyed by path relative to that
 folder. `src/findings/manifest.ts` handles it:
 
 - **Validated on read.** Malformed findings are dropped one at a time, and an unknown
@@ -176,7 +176,7 @@ re-anchored before reconciling and the report says so.
 
 ## Settings
 
-Read once per run from the `privAudit` section by `src/config.ts`, which type-checks and
+Read once per run from the `privAnnotate` section by `src/config.ts`, which type-checks and
 clamps every value:
 
 | Key | Default | Used by |
@@ -185,7 +185,7 @@ clamps every value:
 | `analysis.maxConcurrentRequests` | 3 (1–16) | `runWithConcurrency` |
 | `analysis.chunkOverlapLines` | 20 (0–200) | `planChunks` |
 
-Context keys `privAudit.findingsVisible` and `privAudit.rejectedVisible` mirror the toggles
+Context keys `privAnnotate.findingsVisible` and `privAnnotate.rejectedVisible` mirror the toggles
 for use in `when` clauses.
 
 ## Design decisions
@@ -240,5 +240,5 @@ picks it up automatically unless it is runtime-only. Update `toStoredFinding` an
 `isStoredFinding`, and if the model provides it, `FINDING_JSON_SCHEMA`, `isRawFinding` and
 `toFinding`. A change to the on-disk shape should bump `MANIFEST_VERSION`.
 
-**Use a different model.** Set `privAudit.model.vendor` and `privAudit.model.family`. No code
+**Use a different model.** Set `privAnnotate.model.vendor` and `privAnnotate.model.family`. No code
 change is needed unless the vendor needs something other than `vscode.lm`.

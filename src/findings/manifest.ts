@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { isCategoryName } from '../rules/catalog';
 import { isConfidence, isFindingStatus, isStringArray, PrivacyFinding } from './schema';
 
-export const MANIFEST_DIR = '.privaudit';
+export const MANIFEST_DIR = '.privannotate';
 export const MANIFEST_FILE = 'findings.json';
 export const MANIFEST_VERSION = 1;
 
@@ -207,7 +207,7 @@ export class ManifestStore {
             manifest = parseManifest(new TextDecoder().decode(bytes));
         } catch (error) {
             if (!isFileNotFound(error)) {
-                console.error('priv-audit: could not read manifest; starting empty.', error);
+                console.error('priv-annotate: could not read manifest; starting empty.', error);
             }
         }
 

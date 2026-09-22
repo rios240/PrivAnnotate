@@ -48,7 +48,7 @@ export interface PrivacyFinding {
     firstSeen: string;
     lastSeen: string;
     decidedAt?: string;
-    /** Set when a run no longer finds this span; kept for the audit trail. */
+    /** Set when a run no longer finds this span; kept for the annotate trail. */
     resolvedAt?: string;
     /** True when a stored span could not be re-located in the current text. */
     stale?: boolean;

@@ -629,7 +629,7 @@ export const CATEGORY_BY_RULE_ID: ReadonlyMap<string, CategoryName> = new Map(
 export function getRule(category: CategoryName): PrivacyRule {
     const rule = PRIVACY_RULES.find(c => c.category === category);
     if (!rule) {
-        throw new Error(`priv-audit: no detection rule defined for category "${category}"`);
+        throw new Error(`priv-annotate: no detection rule defined for category "${category}"`);
     }
     return rule;
 }
