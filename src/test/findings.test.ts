@@ -8,14 +8,13 @@ import {
     StoredFinding,
 } from '../findings/manifest';
 import { mergeForStorage, reconcile, relocate, TextSource } from '../findings/reconcile';
-import { PrivacyFinding } from '../pdc/schema';
+import { PrivacyFinding } from '../findings/schema';
 
 const NOW = '2026-08-27T12:00:00.000Z';
 const EARLIER = '2026-08-01T09:00:00.000Z';
 
 function fresh(excerpt: string, start = 10, end = 11): PrivacyFinding {
     return {
-        id: `id-${excerpt}`,
         fingerprint: computeFingerprint('FIRST_PARTY_COLLECTION_USE', excerpt),
         category: 'FIRST_PARTY_COLLECTION_USE',
         lineRange: { start, end },

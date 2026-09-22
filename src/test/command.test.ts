@@ -1,26 +1,20 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { runWithConcurrency } from '../command';
+import { runWithConcurrency } from '../commands/analyze';
+import { clearAllFindings, clearFindings, getFinding, getFindings, setFindings } from '../findings/store';
 import {
-    clearFindings,
-    clearAllFindings,
-    getFinding,
-    getFindings,
     isShowingFindings,
     isShowingRejected,
-    nextFindingId,
-    setFindings,
     setShowFindings,
     setShowRejected,
     visibleFindings,
-} from '../misc/decorations';
-import { PrivacyFinding } from '../pdc/schema';
+} from '../ui/decorations';
+import { PrivacyFinding } from '../findings/schema';
 import { computeFingerprint } from '../findings/fingerprint';
 
 function makeFinding(start: number, end: number, excerpt = 'x = request.json["x"]'): PrivacyFinding {
     const now = new Date().toISOString();
     return {
-        id: nextFindingId(),
         fingerprint: computeFingerprint('FIRST_PARTY_COLLECTION_USE', excerpt),
         category: 'FIRST_PARTY_COLLECTION_USE',
         lineRange: { start, end },
@@ -77,7 +71,7 @@ suite('runWithConcurrency', () => {
         // Mirrors analyzeCategory: failures are caught per unit and yield [].
         const results = await runWithConcurrency([1, 2, 3], 3, async n => {
             try {
-                if (n === 2) throw new Error('category failed');
+                if (n === 2) {throw new Error('category failed');}
                 return n;
             } catch {
                 return 0;
@@ -96,17 +90,17 @@ suite('finding store', () => {
             content: Array.from({ length: 40 }, (_, i) => `line ${i + 1}`).join('\n'),
             language: 'python',
         });
-        clearFindings(document);
+        clearFindings(document.uri);
     });
 
-    teardown(() => clearFindings(document));
+    teardown(() => clearFindings(document.uri));
 
     test('setFindings replaces the whole file rather than accumulating', () => {
         setFindings(document.uri, [makeFinding(2, 3, 'a = req.a'), makeFinding(9, 12, 'b = req.b')]);
         setFindings(document.uri, [makeFinding(14, 15, 'c = req.c')]);
 
         assert.deepStrictEqual(
-            getFindings(document).map(f => `${f.lineRange.start}-${f.lineRange.end}`),
+            getFindings(document.uri).map(f => `${f.lineRange.start}-${f.lineRange.end}`),
             ['14-15']
         );
     });
@@ -115,14 +109,14 @@ suite('finding store', () => {
         setFindings(document.uri, [makeFinding(11, 12)]);
         setFindings(document.uri, []);
 
-        assert.deepStrictEqual(getFindings(document), []);
+        assert.deepStrictEqual(getFindings(document.uri), []);
     });
 
     test('getFinding looks up by fingerprint', () => {
         const finding = makeFinding(11, 12, 'lat = request.json["lat"]');
         setFindings(document.uri, [finding]);
 
-        assert.strictEqual(getFinding(document.uri, finding.fingerprint)?.id, finding.id);
+        assert.strictEqual(getFinding(document.uri, finding.fingerprint), finding);
         assert.strictEqual(getFinding(document.uri, 'deadbeefdeadbeef'), undefined);
     });
 
@@ -133,8 +127,8 @@ suite('finding store', () => {
 
         clearAllFindings();
 
-        assert.deepStrictEqual(getFindings(document), []);
-        assert.deepStrictEqual(getFindings(other), []);
+        assert.deepStrictEqual(getFindings(document.uri), []);
+        assert.deepStrictEqual(getFindings(other.uri), []);
     });
 });
 

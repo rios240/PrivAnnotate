@@ -9,7 +9,7 @@ export const CHUNK_OVERLAP_LINES = 20;
 
 /**
  * Tokens held back from `maxInputTokens` for the prelude, output contract, and
- * detection card. The largest card (AI-08) plus instructions renders at roughly
+ * detection rule. The largest rule (AI-08) plus instructions renders at roughly
  * 3k tokens; the reserve is generous because under-reserving silently costs
  * code lines, while over-reserving only adds a chunk.
  */
@@ -101,7 +101,7 @@ export async function planChunks(
     budget: number,
     countTokens: CountTokens
 ): Promise<Chunk[]> {
-    if (document.lineCount === 0) return [];
+    if (document.lineCount === 0) {return [];}
 
     const lastLine = document.lineCount - 1;
     const spans = await splitToFit(

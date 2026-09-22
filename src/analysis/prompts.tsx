@@ -8,8 +8,8 @@ import {
 } from '@vscode/prompt-tsx';
 import * as vscode from 'vscode';
 
-import { CardExample, PdcCard } from './pdc/categories';
-import { FINDING_JSON_SCHEMA } from './pdc/schema';
+import { RuleExample, PrivacyRule } from '../rules/catalog';
+import { FINDING_JSON_SCHEMA } from '../findings/schema';
 
 /**
  * Boundary markers around the code under analysis. Explicit delimiters (rather
@@ -29,24 +29,24 @@ export interface ITruncationInfo {
 /* ------------------------------------------------------------------ */
 
 export interface IPreludeProps extends BasePromptElementProps {
-    card: PdcCard;
+    rule: PrivacyRule;
 }
 
 export class PreludeElement extends PromptElement<IPreludeProps, void> {
     render(_state: void, _sizing: PromptSizing) {
-        const card = this.props.card;
+        const rule = this.props.rule;
         return (
             <>
                 You are a privacy engineer annotating source code with the data practices it
-                implements. You work from the Privacy Practice Detection Card set: eight
+                implements. You work from the Privacy Practice Detection Rules: eight
                 code-relevant categories adapted from the OPP-115 privacy-policy taxonomy, plus
                 one custom category covering AI/ML usage. Downstream, your annotations are
                 compared against an organization's written privacy policy to surface
                 inconsistencies, so precision matters more than volume.
                 <br />
                 <br />
-                SCOPE OF THIS REQUEST: you are given exactly one card - {card.id} (
-                {card.displayName}) - and you report matches for that category only. Other
+                SCOPE OF THIS REQUEST: you are given exactly one rule - {rule.id} (
+                {rule.displayName}) - and you report matches for that category only. Other
                 categories are being handled by separate requests. If a span also matches a
                 different category, note that in the finding's "crossReferences" field; do not
                 emit a finding for it.
@@ -78,15 +78,15 @@ export class PreludeElement extends PromptElement<IPreludeProps, void> {
 }
 
 /* ------------------------------------------------------------------ */
-/* 2. Category - one detection card                                    */
+/* 2. Category - one detection rule                                    */
 /* ------------------------------------------------------------------ */
 
-export interface ICardExampleProps extends BasePromptElementProps {
-    example: CardExample;
+export interface IRuleExampleProps extends BasePromptElementProps {
+    example: RuleExample;
     index: number;
 }
 
-export class CardExampleElement extends PromptElement<ICardExampleProps, void> {
+export class RuleExampleElement extends PromptElement<IRuleExampleProps, void> {
     render(_state: void, _sizing: PromptSizing) {
         const { example, index } = this.props;
         return (
@@ -106,42 +106,42 @@ export class CardExampleElement extends PromptElement<ICardExampleProps, void> {
     }
 }
 
-export interface ICategoryCardProps extends BasePromptElementProps {
-    card: PdcCard;
+export interface IRuleProps extends BasePromptElementProps {
+    rule: PrivacyRule;
 }
 
-export class CategoryCardElement extends PromptElement<ICategoryCardProps, void> {
+export class RuleElement extends PromptElement<IRuleProps, void> {
     render(_state: void, _sizing: PromptSizing) {
-        const card = this.props.card;
+        const rule = this.props.rule;
         return (
             <>
                 '''<br />
-                IDENTIFIER: {card.id}<br />
-                CATEGORY: {card.category}<br />
-                CATEGORY NAME: {card.displayName}<br />
+                IDENTIFIER: {rule.id}<br />
+                CATEGORY: {rule.category}<br />
+                CATEGORY NAME: {rule.displayName}<br />
                 <br />
                 BASE DESCRIPTION:<br />
-                {card.baseDescription}<br />
+                {rule.baseDescription}<br />
                 <br />
                 HOW TO REASON ABOUT THIS CATEGORY:<br />
-                {card.chainOfThought}<br />
+                {rule.chainOfThought}<br />
                 <br />
                 ELICITATION QUESTIONS (guidance, not an exhaustive test - a span may match this
                 category without answering any of these):<br />
-                {card.elicitationQuestions.map(q => (
+                {rule.elicitationQuestions.map(q => (
                     <>&nbsp;&nbsp;- {q}<br /></>
                 ))}
                 <br />
                 WORKED EXAMPLES (the negative examples define the boundary as much as the
                 positive ones - study both):<br />
-                {card.examples.map((example, i) => (
-                    <CardExampleElement example={example} index={i + 1} />
+                {rule.examples.map((example, i) => (
+                    <RuleExampleElement example={example} index={i + 1} />
                 ))}
-                {card.crossReferences?.length ? (
+                {rule.crossReferences?.length ? (
                     <>
                         <br />
-                        RELATED CATEGORIES: spans matching {card.id} frequently also match{' '}
-                        {card.crossReferences.join(', ')}. List those in "crossReferences" rather
+                        RELATED CATEGORIES: spans matching {rule.id} frequently also match{' '}
+                        {rule.crossReferences.join(', ')}. List those in "crossReferences" rather
                         than emitting findings for them.<br />
                     </>
                 ) : (
@@ -158,12 +158,12 @@ export class CategoryCardElement extends PromptElement<ICategoryCardProps, void>
 /* ------------------------------------------------------------------ */
 
 export interface IOutputFormatProps extends BasePromptElementProps {
-    card: PdcCard;
+    rule: PrivacyRule;
 }
 
 export class OutputFormatElement extends PromptElement<IOutputFormatProps, void> {
     render(_state: void, _sizing: PromptSizing) {
-        const card = this.props.card;
+        const rule = this.props.rule;
         return (
             <>
                 RESPONSE FORMAT<br />
@@ -175,10 +175,10 @@ export class OutputFormatElement extends PromptElement<IOutputFormatProps, void>
                 The array must conform to this schema:<br />
                 {JSON.stringify(FINDING_JSON_SCHEMA, null, 2)}<br />
                 <br />
-                Every element's "category" must be exactly "{card.category}" - the category of
-                the one card you were given.<br />
+                Every element's "category" must be exactly "{rule.category}" - the category of
+                the one rule you were given.<br />
                 <br />
-                If no span in the supplied code matches {card.id}, respond with exactly:{' '}
+                If no span in the supplied code matches {rule.id}, respond with exactly:{' '}
                 {'[]'}
             </>
         );
@@ -194,7 +194,7 @@ export interface ICodeTaskProps extends BasePromptElementProps {
     range?: vscode.Range;
     /** Path shown to the model; omitted for untitled documents. */
     filePath?: string;
-    card: PdcCard;
+    rule: PrivacyRule;
     onTruncated?: (info: ITruncationInfo) => void;
 }
 
@@ -257,11 +257,11 @@ export class CodeTaskElement extends PromptElement<ICodeTaskProps, ICodeTaskStat
     }
 
     render(state: ICodeTaskState) {
-        const { card, document, filePath } = this.props;
+        const { rule, document, filePath } = this.props;
         return (
             <>
-                TASK: analyze the {document.languageId} code below against card {card.id} (
-                {card.displayName}) only, and report every span that matches it.<br />
+                TASK: analyze the {document.languageId} code below against rule {rule.id} (
+                {rule.displayName}) only, and report every span that matches it.<br />
                 {filePath ? <>FILE: {filePath}<br /></> : <></>}
                 LINES SHOWN: {state.startLine} to {state.endLine}
                 {state.truncated ? ' (the remainder of the selection did not fit and is not shown)' : ''}
@@ -278,7 +278,7 @@ export class CodeTaskElement extends PromptElement<ICodeTaskProps, ICodeTaskStat
 /* ------------------------------------------------------------------ */
 
 export interface ICategoryAnalysisPromptProps extends BasePromptElementProps {
-    card: PdcCard;
+    rule: PrivacyRule;
     document: vscode.TextDocument;
     range?: vscode.Range;
     filePath?: string;
@@ -286,7 +286,7 @@ export interface ICategoryAnalysisPromptProps extends BasePromptElementProps {
 }
 
 /**
- * One request's worth of prompt: prelude + a single category card + output
+ * One request's worth of prompt: prelude + a single category rule + output
  * contract, followed by the code under analysis.
  *
  * Instruction content sits in an AssistantMessage rather than a system message
@@ -295,27 +295,27 @@ export interface ICategoryAnalysisPromptProps extends BasePromptElementProps {
  * Priorities order what survives a tight token budget, most indispensable
  * first: without the output contract the reply is unparseable, and without the
  * code there is nothing to analyze at all - so both outrank the prelude and the
- * card, whose examples are the affordable thing to lose. `flexGrow` still lets
+ * rule, whose examples are the affordable thing to lose. `flexGrow` still lets
  * the code claim whatever budget the instructions leave behind.
  */
 export class CategoryAnalysisPrompt extends PromptElement<ICategoryAnalysisPromptProps, void> {
     render(_state: void, _sizing: PromptSizing) {
-        const card = this.props.card;
+        const rule = this.props.rule;
         return (
             <>
                 <AssistantMessage priority={90}>
-                    <PreludeElement card={card} />
+                    <PreludeElement rule={rule} />
                 </AssistantMessage>
                 <AssistantMessage priority={100}>
-                    <OutputFormatElement card={card} />
+                    <OutputFormatElement rule={rule} />
                 </AssistantMessage>
                 <AssistantMessage priority={85}>
-                    DETECTION CARD FOR THIS REQUEST:<br />
-                    <CategoryCardElement card={card} />
+                    DETECTION RULE FOR THIS REQUEST:<br />
+                    <RuleElement rule={rule} />
                 </AssistantMessage>
                 <UserMessage priority={95} flexGrow={1}>
                     <CodeTaskElement
-                        card={card}
+                        rule={rule}
                         document={this.props.document}
                         range={this.props.range}
                         filePath={this.props.filePath}

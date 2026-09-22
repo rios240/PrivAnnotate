@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
-import { getCard } from './pdc/categories';
-import { PrivacyFinding } from './pdc/schema';
-import { StoredFinding } from './findings/manifest';
-import { ReconcileResult } from './findings/reconcile';
-import { ITruncationInfo } from './prompts';
+import { getRule } from '../rules/catalog';
+import { PrivacyFinding } from '../findings/schema';
+import { StoredFinding } from '../findings/manifest';
+import { ReconcileResult } from '../findings/reconcile';
+import { ITruncationInfo } from '../analysis/prompts';
 
 export interface RunContext {
     chunks: number;
@@ -26,21 +26,18 @@ export function disposeReport(): void {
     channel = undefined;
 }
 
-export function registerReportCommand(context: vscode.ExtensionContext) {
-    context.subscriptions.push(
-        vscode.commands.registerCommand('priv-audit.showReport', () => {
-            getChannel().show(true);
-        })
-    );
+/** Reveals the report channel without stealing focus from the editor. */
+export function showReport(): void {
+    getChannel().show(true);
 }
 
 function describe(finding: PrivacyFinding | StoredFinding): string {
-    const card = getCard(finding.category);
+    const rule = getRule(finding.category);
     const lines =
         finding.lineRange.start === finding.lineRange.end
             ? `L${finding.lineRange.start}`
             : `L${finding.lineRange.start}-${finding.lineRange.end}`;
-    return `  [${card.id}] ${lines} (${finding.confidence}) - ${finding.evidence}`;
+    return `  [${rule.id}] ${lines} (${finding.confidence}) - ${finding.evidence}`;
 }
 
 function section(
@@ -48,7 +45,7 @@ function section(
     title: string,
     items: Array<PrivacyFinding | StoredFinding>
 ): void {
-    if (items.length === 0) return;
+    if (items.length === 0) {return;}
     out.appendLine(`${title} (${items.length})`);
     items.forEach(item => out.appendLine(describe(item)));
     out.appendLine('');
@@ -105,10 +102,10 @@ export function reportRun(
 
 function showSummary(result: ReconcileResult, context: RunContext): void {
     const parts: string[] = [];
-    if (result.added.length) parts.push(`${result.added.length} new`);
-    if (result.persisted.length) parts.push(`${result.persisted.length} still present`);
-    if (result.resolved.length) parts.push(`${result.resolved.length} no longer found`);
-    if (result.suppressed.length) parts.push(`${result.suppressed.length} suppressed`);
+    if (result.added.length) {parts.push(`${result.added.length} new`);}
+    if (result.persisted.length) {parts.push(`${result.persisted.length} still present`);}
+    if (result.resolved.length) {parts.push(`${result.resolved.length} no longer found`);}
+    if (result.suppressed.length) {parts.push(`${result.suppressed.length} suppressed`);}
 
     const summary = parts.length > 0 ? parts.join(', ') : 'no privacy practices detected';
     const failed = context.failedCategories.length > 0
@@ -124,6 +121,6 @@ function showSummary(result: ReconcileResult, context: RunContext): void {
             : vscode.window.showInformationMessage(message, show);
 
     notify.then(choice => {
-        if (choice === show) getChannel().show(true);
+        if (choice === show) {showReport();}
     });
 }

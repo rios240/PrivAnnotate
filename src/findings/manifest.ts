@@ -1,35 +1,17 @@
 import * as vscode from 'vscode';
-import { CategoryName, isCategoryName } from '../pdc/categories';
-import {
-    Confidence,
-    FindingStatus,
-    isConfidence,
-    isFindingStatus,
-    isStringArray,
-    LineRange,
-    PrivacyFinding,
-} from '../pdc/schema';
+import { isCategoryName } from '../rules/catalog';
+import { isConfidence, isFindingStatus, isStringArray, PrivacyFinding } from './schema';
 
 export const MANIFEST_DIR = '.privaudit';
 export const MANIFEST_FILE = 'findings.json';
 export const MANIFEST_VERSION = 1;
 
-/** A finding as persisted: no runtime id, no path (the file entry carries it). */
-export interface StoredFinding {
-    fingerprint: string;
-    category: CategoryName;
-    lineRange: LineRange;
-    excerpt: string;
-    evidence: string;
-    confidence: Confidence;
-    reasoning?: string[];
-    crossReferences?: CategoryName[];
-    status: FindingStatus;
-    firstSeen: string;
-    lastSeen: string;
-    decidedAt?: string;
-    resolvedAt?: string;
-}
+/**
+ * A finding as persisted. Derived from `PrivacyFinding` so the two cannot drift:
+ * only the runtime-only fields are dropped - the path (the file entry carries
+ * it) and the staleness flag (recomputed on every load).
+ */
+export type StoredFinding = Omit<PrivacyFinding, 'file' | 'stale'>;
 
 export interface ManifestFileEntry {
     lastAnalyzedAt: string;
@@ -69,25 +51,25 @@ export function toStoredFinding(finding: PrivacyFinding): StoredFinding {
  * than trust it, and drop only the entries that are actually malformed.
  */
 export function isStoredFinding(value: unknown): value is StoredFinding {
-    if (typeof value !== 'object' || value === null) return false;
+    if (typeof value !== 'object' || value === null) {return false;}
     const v = value as Record<string, unknown>;
 
-    if (typeof v.fingerprint !== 'string' || v.fingerprint.length === 0) return false;
-    if (!isCategoryName(v.category)) return false;
-    if (typeof v.excerpt !== 'string') return false;
-    if (typeof v.evidence !== 'string') return false;
-    if (!isConfidence(v.confidence)) return false;
-    if (!isFindingStatus(v.status)) return false;
-    if (typeof v.firstSeen !== 'string' || typeof v.lastSeen !== 'string') return false;
+    if (typeof v.fingerprint !== 'string' || v.fingerprint.length === 0) {return false;}
+    if (!isCategoryName(v.category)) {return false;}
+    if (typeof v.excerpt !== 'string') {return false;}
+    if (typeof v.evidence !== 'string') {return false;}
+    if (!isConfidence(v.confidence)) {return false;}
+    if (!isFindingStatus(v.status)) {return false;}
+    if (typeof v.firstSeen !== 'string' || typeof v.lastSeen !== 'string') {return false;}
 
-    if (typeof v.lineRange !== 'object' || v.lineRange === null) return false;
+    if (typeof v.lineRange !== 'object' || v.lineRange === null) {return false;}
     const range = v.lineRange as Record<string, unknown>;
-    if (typeof range.start !== 'number' || typeof range.end !== 'number') return false;
+    if (typeof range.start !== 'number' || typeof range.end !== 'number') {return false;}
 
-    if (v.decidedAt !== undefined && typeof v.decidedAt !== 'string') return false;
-    if (v.resolvedAt !== undefined && typeof v.resolvedAt !== 'string') return false;
-    if (v.reasoning !== undefined && !isStringArray(v.reasoning)) return false;
-    if (v.crossReferences !== undefined && !isStringArray(v.crossReferences)) return false;
+    if (v.decidedAt !== undefined && typeof v.decidedAt !== 'string') {return false;}
+    if (v.resolvedAt !== undefined && typeof v.resolvedAt !== 'string') {return false;}
+    if (v.reasoning !== undefined && !isStringArray(v.reasoning)) {return false;}
+    if (v.crossReferences !== undefined && !isStringArray(v.crossReferences)) {return false;}
 
     return true;
 }
@@ -108,7 +90,7 @@ export function parseManifest(raw: string): Manifest {
 
     const files: Record<string, ManifestFileEntry> = {};
     for (const [path, value] of Object.entries(root.files as Record<string, unknown>)) {
-        if (typeof value !== 'object' || value === null) continue;
+        if (typeof value !== 'object' || value === null) {continue;}
         const entry = value as Record<string, unknown>;
         const findings = Array.isArray(entry.findings)
             ? entry.findings.filter(isStoredFinding)
@@ -151,10 +133,10 @@ export interface ManifestLocation {
 }
 
 export function locate(document: vscode.TextDocument): ManifestLocation | undefined {
-    if (document.isUntitled) return undefined;
+    if (document.isUntitled) {return undefined;}
 
     const folder = vscode.workspace.getWorkspaceFolder(document.uri);
-    if (!folder) return undefined;
+    if (!folder) {return undefined;}
 
     const relative = vscode.workspace.asRelativePath(document.uri, false).replace(/\\/g, '/');
     return { folder: folder.uri, path: relative };
@@ -178,7 +160,7 @@ export class ManifestStore {
     async load(folder: vscode.Uri): Promise<Manifest> {
         const key = folder.toString();
         const cached = this.cache.get(key);
-        if (cached) return cached;
+        if (cached) {return cached;}
 
         let manifest = emptyManifest();
         try {
@@ -213,7 +195,7 @@ export class ManifestStore {
             try {
                 await vscode.workspace.fs.delete(manifestUri(folder));
             } catch (error) {
-                if (!isFileNotFound(error)) throw error;
+                if (!isFileNotFound(error)) {throw error;}
             }
             this.cache.set(folder.toString(), emptyManifest());
         });

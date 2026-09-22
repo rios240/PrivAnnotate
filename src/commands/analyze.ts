@@ -1,14 +1,15 @@
 import * as vscode from 'vscode';
-import { CODE_INPUT_START, constructCategoryPrompt, ITruncationInfo } from './prompts';
-import { buildParseContext, parseCategoryResponse } from './parseResponse';
-import { PDC_CARDS, PdcCard } from './pdc/categories';
-import { PrivacyFinding } from './pdc/schema';
-import { Chunk, codeBudgetFor, planChunks } from './chunking';
-import { locate, manifestStore, StoredFinding } from './findings/manifest';
-import { mergeForStorage, reconcile, ReconcileResult } from './findings/reconcile';
-import { persistFindings } from './decisions';
-import { reportRun } from './report';
-import { setFindings, updateDecorations } from './misc/decorations';
+import { CODE_INPUT_START, constructCategoryPrompt, ITruncationInfo } from '../analysis/prompts';
+import { buildParseContext, parseCategoryResponse } from '../analysis/parseResponse';
+import { Chunk, codeBudgetFor, planChunks } from '../analysis/chunking';
+import { PRIVACY_RULES, PrivacyRule } from '../rules/catalog';
+import { PrivacyFinding } from '../findings/schema';
+import { StoredFinding } from '../findings/manifest';
+import { mergeForStorage, reconcile, ReconcileResult } from '../findings/reconcile';
+import { loadStoredFindings, persistFindings } from '../findings/persistence';
+import { setFindings } from '../findings/store';
+import { updateDecorations } from '../ui/decorations';
+import { reportRun } from '../ui/report';
 
 /**
  * How many per-category requests are in flight at once. Kept small so a single
@@ -18,7 +19,7 @@ import { setFindings, updateDecorations } from './misc/decorations';
 const MAX_CONCURRENT_REQUESTS = 3;
 
 interface AnalysisUnit {
-    card: PdcCard;
+    rule: PrivacyRule;
     chunk: Chunk;
 }
 
@@ -44,14 +45,14 @@ export function registerAnalyzeCommand(context: vscode.ExtensionContext) {
               return;
           }
 
-          if (cancellationToken.isCancellationRequested) return;
+          if (cancellationToken.isCancellationRequested) {return;}
 
           const document = textEditor.document;
 
           progress.report({ message: 'Planning coverage...' });
 
           // The whole file is analyzed, split into windows that each fit the
-          // model's context alongside one detection card.
+          // model's context alongside one detection rule.
           const chunks = await planChunks(
               document,
               codeBudgetFor(model.maxInputTokens),
@@ -63,7 +64,7 @@ export function registerAnalyzeCommand(context: vscode.ExtensionContext) {
               return;
           }
 
-          if (cancellationToken.isCancellationRequested) return;
+          if (cancellationToken.isCancellationRequested) {return;}
 
           // Eight requests per chunk would otherwise raise the same warning many
           // times over. Last write wins: prompt-tsx may size an element more
@@ -72,7 +73,7 @@ export function registerAnalyzeCommand(context: vscode.ExtensionContext) {
           const onTruncated = (info: ITruncationInfo) => { truncation = info; };
 
           const units: AnalysisUnit[] = chunks.flatMap(chunk =>
-              PDC_CARDS.map(card => ({ card, chunk }))
+              PRIVACY_RULES.map(rule => ({ rule, chunk }))
           );
 
           let completed = 0;
@@ -87,40 +88,40 @@ export function registerAnalyzeCommand(context: vscode.ExtensionContext) {
 
           reportProgress();
 
-          const analyzeUnit = async ({ card, chunk }: AnalysisUnit): Promise<PrivacyFinding[]> => {
-              if (cancellationToken.isCancellationRequested) return [];
+          const analyzeUnit = async ({ rule, chunk }: AnalysisUnit): Promise<PrivacyFinding[]> => {
+              if (cancellationToken.isCancellationRequested) {return [];}
 
               const parseContext = buildParseContext(document, chunk.range);
 
               try {
                   const messages = await constructCategoryPrompt(model, {
-                      card,
+                      rule,
                       document,
                       range: chunk.range,
                       filePath: parseContext.filePath,
                       onTruncated,
                   });
 
-                  if (cancellationToken.isCancellationRequested) return [];
+                  if (cancellationToken.isCancellationRequested) {return [];}
 
                   // If the instructions alone exhausted the context window, the
                   // code message is pruned away entirely. Sending that costs a
                   // request and can only produce ungrounded findings.
                   if (!containsCodeInput(messages)) {
                       throw new Error(
-                          `context window too small to include any code alongside card ${card.id}`
+                          `context window too small to include any code alongside rule ${rule.id}`
                       );
                   }
 
                   const response = await model.sendRequest(messages, {}, cancellationToken);
-                  return await parseCategoryResponse(response, card, parseContext);
+                  return await parseCategoryResponse(response, rule, parseContext);
               } catch (error) {
-                  if (cancellationToken.isCancellationRequested) return [];
+                  if (cancellationToken.isCancellationRequested) {return [];}
                   console.error(
-                      `priv-audit: category ${card.id} failed on chunk ${chunk.index}/${chunk.total}:`,
+                      `priv-audit: category ${rule.id} failed on chunk ${chunk.index}/${chunk.total}:`,
                       error
                   );
-                  failures.add(card.id);
+                  failures.add(rule.id);
                   return [];
               } finally {
                   completed += 1;
@@ -130,7 +131,7 @@ export function registerAnalyzeCommand(context: vscode.ExtensionContext) {
 
           const results = await runWithConcurrency(units, MAX_CONCURRENT_REQUESTS, analyzeUnit);
 
-          if (cancellationToken.isCancellationRequested) return;
+          if (cancellationToken.isCancellationRequested) {return;}
 
           progress.report({ message: 'Reconciling with previous findings...' });
 
@@ -156,14 +157,6 @@ export function registerAnalyzeCommand(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(analyzeCommand);
-}
-
-async function loadStoredFindings(document: vscode.TextDocument): Promise<StoredFinding[]> {
-    const location = locate(document);
-    if (!location) return [];
-
-    const manifest = await manifestStore.load(location.folder);
-    return manifest.files[location.path]?.findings ?? [];
 }
 
 async function persistAnalysis(
@@ -209,7 +202,7 @@ export async function runWithConcurrency<T, R>(
     const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
         while (true) {
             const index = next++;
-            if (index >= items.length) return;
+            if (index >= items.length) {return;}
             results[index] = await worker(items[index], index);
         }
     });

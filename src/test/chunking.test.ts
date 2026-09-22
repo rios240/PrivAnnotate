@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { CHUNK_OVERLAP_LINES, codeBudgetFor, planChunks } from '../chunking';
+import { CHUNK_OVERLAP_LINES, codeBudgetFor, planChunks } from '../analysis/chunking';
 
 /** Same rough estimate the prompt tests use: four characters to a token. */
 const estimate = async (text: string) => Math.ceil(text.length / 4);

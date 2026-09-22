@@ -1,15 +1,17 @@
 /**
- * Privacy Practice Detection Cards.
+ * Privacy Practice Detection Rules.
  *
- * A LINDDUN GO-style card set adapted from the OPP-115 taxonomy (Wilson et
- * al., 2016) and the LINDDUN GO card format (DistriNet, KU Leuven). Cards
- * FP-01 through DS-06 cover the first six OPP-115 categories; DNT-07 is
- * OPP-115's ninth category reformulated for code; AI-08 is a custom category
- * with no OPP-115 equivalent (OPP-115 predates widespread LLM/ML integration).
+ * One rule per privacy-practice category, adapted from the OPP-115 taxonomy
+ * (Wilson et al., 2016); the per-rule structure (description, reasoning
+ * guidance, elicitation questions, worked examples) follows the LINDDUN GO card
+ * format (DistriNet, KU Leuven). Rules FP-01 through DS-06 cover the first six
+ * OPP-115 categories; DNT-07 is OPP-115's ninth category reformulated for code;
+ * AI-08 is a custom category with no OPP-115 equivalent (OPP-115 predates
+ * widespread LLM/ML integration).
  *
- * Card text is transcribed from the framework document and is the single
- * source of truth for prompt content - `src/prompts.tsx` renders these fields
- * directly. Each card is sent to the model on its own, in its own request.
+ * Rule text is transcribed from the framework document and is the single
+ * source of truth for prompt content - `src/analysis/prompts.tsx` renders these
+ * fields directly. Each rule is sent to the model on its own, in its own request.
  */
 
 export const CATEGORY_NAMES = [
@@ -31,9 +33,9 @@ export function isCategoryName(value: unknown): value is CategoryName {
 
 /**
  * A worked exemplar. Negative examples matter as much as positive ones - they
- * are what sharpen the detection boundary, so every card carries at least one.
+ * are what sharpen the detection boundary, so every rule carries at least one.
  */
-export interface CardExample {
+export interface RuleExample {
     kind: 'positive' | 'negative';
     label: string;
     language: string;
@@ -42,8 +44,8 @@ export interface CardExample {
     conclusion: string;
 }
 
-export interface PdcCard {
-    /** Card identifier, e.g. 'FP-01'. */
+export interface PrivacyRule {
+    /** Rule identifier, e.g. 'FP-01'. */
     id: string;
     /** Enum value the model must emit in the "category" field. */
     category: CategoryName;
@@ -53,16 +55,16 @@ export interface PdcCard {
     /** The "Look for..." reasoning guidance paragraph. */
     chainOfThought: string;
     elicitationQuestions: string[];
-    examples: CardExample[];
+    examples: RuleExample[];
     /**
-     * Other card IDs this one legitimately co-occurs with. A single span often
+     * Other rule IDs this one legitimately co-occurs with. A single span often
      * matches more than one category; the framework asks for all applicable
      * flags rather than a forced single label.
      */
     crossReferences?: string[];
 }
 
-export const PDC_CARDS: PdcCard[] = [
+export const PRIVACY_RULES: PrivacyRule[] = [
     {
         id: 'FP-01',
         category: 'FIRST_PARTY_COLLECTION_USE',
@@ -428,7 +430,7 @@ export const PDC_CARDS: PdcCard[] = [
                     'span would instead be flagged under FP-01 for storing the password; a ' +
                     'downstream comparison against a policy that promises "passwords are ' +
                     'securely hashed" would surface a real inconsistency here - but that ' +
-                    'judgment belongs to the comparison stage, not this card.)',
+                    'judgment belongs to the comparison stage, not this rule.)',
             },
         ],
         crossReferences: ['UA-04'],
@@ -619,15 +621,15 @@ export const PDC_CARDS: PdcCard[] = [
     },
 ];
 
-/** Maps a card ID (e.g. 'TP-02') to its category enum name. */
-export const CATEGORY_BY_CARD_ID: ReadonlyMap<string, CategoryName> = new Map(
-    PDC_CARDS.map(card => [card.id, card.category])
+/** Maps a rule ID (e.g. 'TP-02') to its category enum name. */
+export const CATEGORY_BY_RULE_ID: ReadonlyMap<string, CategoryName> = new Map(
+    PRIVACY_RULES.map(rule => [rule.id, rule.category])
 );
 
-export function getCard(category: CategoryName): PdcCard {
-    const card = PDC_CARDS.find(c => c.category === category);
-    if (!card) {
-        throw new Error(`priv-audit: no detection card defined for category "${category}"`);
+export function getRule(category: CategoryName): PrivacyRule {
+    const rule = PRIVACY_RULES.find(c => c.category === category);
+    if (!rule) {
+        throw new Error(`priv-audit: no detection rule defined for category "${category}"`);
     }
-    return card;
+    return rule;
 }

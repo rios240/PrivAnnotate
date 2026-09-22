@@ -1,4 +1,4 @@
-import { LineRange, PrivacyFinding } from '../pdc/schema';
+import { LineRange, PrivacyFinding } from './schema';
 import { StoredFinding } from './manifest';
 import { excerptAnchor, normalizeExcerpt } from './fingerprint';
 
@@ -47,7 +47,7 @@ export function reconcile(
 
     for (const finding of fresh) {
         // A single run can surface the same span twice via overlapping chunks.
-        if (seen.has(finding.fingerprint)) continue;
+        if (seen.has(finding.fingerprint)) {continue;}
         seen.add(finding.fingerprint);
 
         const previous = storedByFingerprint.get(finding.fingerprint);
@@ -69,7 +69,7 @@ export function reconcile(
         };
 
         findings.push(entry);
-        if (previous.resolvedAt) reopened.push(entry);
+        if (previous.resolvedAt) {reopened.push(entry);}
         if (entry.status === 'rejected') {
             suppressed.push(entry);
         } else {
@@ -96,10 +96,9 @@ export function mergeForStorage(
     const retained: PrivacyFinding[] = [];
 
     for (const previous of stored) {
-        if (fresh.has(previous.fingerprint)) continue;
+        if (fresh.has(previous.fingerprint)) {continue;}
         retained.push({
             ...previous,
-            id: `stored-${previous.fingerprint}`,
             resolvedAt: previous.resolvedAt ?? now,
         });
     }
@@ -122,7 +121,7 @@ export function relocate(
 ): { lineRange: LineRange; stale: boolean } {
     const clamped = clampRange(stored, source.lineCount);
     const anchor = excerptAnchor(excerpt);
-    if (!anchor) return { lineRange: clamped, stale: true };
+    if (!anchor) {return { lineRange: clamped, stale: true };}
 
     // Already correct: the common case, and cheaper than scanning the file.
     if (lineMatches(source, clamped.start, anchor)) {
@@ -131,13 +130,13 @@ export function relocate(
 
     let best: number | undefined;
     for (let line = 1; line <= source.lineCount; line++) {
-        if (!lineMatches(source, line, anchor)) continue;
+        if (!lineMatches(source, line, anchor)) {continue;}
         if (best === undefined || Math.abs(line - stored.start) < Math.abs(best - stored.start)) {
             best = line;
         }
     }
 
-    if (best === undefined) return { lineRange: clamped, stale: true };
+    if (best === undefined) {return { lineRange: clamped, stale: true };}
 
     const span = Math.max(0, stored.end - stored.start);
     return {

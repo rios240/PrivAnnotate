@@ -1,9 +1,12 @@
 import * as vscode from 'vscode';
-import { registerAnalyzeCommand } from './command';
-import { loadFindingsFor, registerDecisionCommands } from './decisions';
+import { registerAnalyzeCommand } from './commands/analyze';
+import { registerDecisionCommands } from './commands/decisions';
+import { registerManifestCommands } from './commands/manifest';
+import { registerViewCommands } from './commands/view';
 import { manifestStore, MANIFEST_DIR, MANIFEST_FILE } from './findings/manifest';
-import { disposeDecorations, updateDecorations } from './misc/decorations';
-import { disposeReport, registerReportCommand } from './report';
+import { loadFindingsFor } from './findings/persistence';
+import { disposeDecorations, updateDecorations } from './ui/decorations';
+import { disposeReport } from './ui/report';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -11,7 +14,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 	registerAnalyzeCommand(context);
 	registerDecisionCommands(context);
-	registerReportCommand(context);
+	registerManifestCommands(context);
+	registerViewCommands(context);
 
 	// Findings persist between sessions, so restore them for whatever is
 	// already open and for anything the user opens later.

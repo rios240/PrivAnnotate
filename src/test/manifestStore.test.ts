@@ -2,9 +2,10 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { emptyManifest, ManifestStore, manifestStore, manifestUri, StoredFinding } from '../findings/manifest';
 import { computeFingerprint } from '../findings/fingerprint';
-import { loadFindingsFor, resetManifest } from '../decisions';
-import { clearAllFindings, getFindings, setFindings } from '../misc/decorations';
-import { PrivacyFinding } from '../pdc/schema';
+import { loadFindingsFor } from '../findings/persistence';
+import { resetManifest } from '../commands/manifest';
+import { clearAllFindings, getFindings, setFindings } from '../findings/store';
+import { PrivacyFinding } from '../findings/schema';
 
 /**
  * Test-only helpers on the Node `vscode` stub. Under the Extension Development
@@ -99,7 +100,7 @@ async function openFile(): Promise<vscode.TextDocument> {
     let document: vscode.TextDocument;
 
     function painted(): PrivacyFinding {
-        return { ...stored('a = req.a'), id: 'local-1' };
+        return { ...stored('a = req.a') };
     }
 
     setup(async () => {
@@ -122,7 +123,7 @@ async function openFile(): Promise<vscode.TextDocument> {
         await resetManifest();
 
         assert.ok(stub.__readFile(manifestUri(FOLDER)), 'manifest should survive a cancelled reset');
-        assert.strictEqual(getFindings(document).length, 1);
+        assert.strictEqual(getFindings(document.uri).length, 1);
     });
 
     test('wipes the manifest and the in-memory findings once confirmed', async () => {
@@ -130,7 +131,7 @@ async function openFile(): Promise<vscode.TextDocument> {
         await resetManifest();
 
         assert.strictEqual(stub.__readFile(manifestUri(FOLDER)), undefined);
-        assert.deepStrictEqual(getFindings(document), []);
+        assert.deepStrictEqual(getFindings(document.uri), []);
     });
 });
 
@@ -151,15 +152,15 @@ async function openFile(): Promise<vscode.TextDocument> {
         await withEntry(manifestStore);
 
         assert.strictEqual(await loadFindingsFor(document), true);
-        assert.strictEqual(getFindings(document).length, 1);
-        assert.strictEqual(getFindings(document)[0].status, 'accepted');
+        assert.strictEqual(getFindings(document.uri).length, 1);
+        assert.strictEqual(getFindings(document.uri)[0].status, 'accepted');
     });
 
     test('clears painted findings when the manifest no longer has an entry', async () => {
         const document = await openFile();
-        setFindings(document.uri, [{ ...stored('a = req.a'), id: 'local-1' }]);
+        setFindings(document.uri, [{ ...stored('a = req.a') }]);
 
         assert.strictEqual(await loadFindingsFor(document), false);
-        assert.deepStrictEqual(getFindings(document), []);
+        assert.deepStrictEqual(getFindings(document.uri), []);
     });
 });

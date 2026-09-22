@@ -1,9 +1,7 @@
 import * as vscode from 'vscode';
-import { getCard } from '../pdc/categories';
-import { Confidence, FindingStatus, PrivacyFinding } from '../pdc/schema';
-
-// One store per open document, keyed by URI string.
-const findingsByDocument = new Map<string, PrivacyFinding[]>();
+import { getRule } from '../rules/catalog';
+import { Confidence, FindingStatus, PrivacyFinding } from '../findings/schema';
+import { getFindings } from '../findings/store';
 
 type DecorationSet = Record<FindingStatus, vscode.TextEditorDecorationType>;
 
@@ -65,36 +63,9 @@ export function setShowFindings(value: boolean): void {
 }
 
 export function disposeDecorations(): void {
-    if (!decorationSet) return;
+    if (!decorationSet) {return;}
     Object.values(decorationSet).forEach(type => type.dispose());
     decorationSet = undefined;
-}
-
-let idCounter = 0;
-export function nextFindingId(): string {
-    idCounter += 1;
-    return `finding-${idCounter}`;
-}
-
-export function setFindings(uri: vscode.Uri, findings: PrivacyFinding[]): void {
-    findingsByDocument.set(uri.toString(), findings);
-}
-
-export function getFindings(document: vscode.TextDocument): PrivacyFinding[] {
-    return findingsByDocument.get(document.uri.toString()) ?? [];
-}
-
-export function getFinding(uri: vscode.Uri, fingerprint: string): PrivacyFinding | undefined {
-    return findingsByDocument.get(uri.toString())?.find(f => f.fingerprint === fingerprint);
-}
-
-export function clearFindings(document: vscode.TextDocument): void {
-    findingsByDocument.delete(document.uri.toString());
-}
-
-/** Empties the store for every document, e.g. after the manifest is reset. */
-export function clearAllFindings(): void {
-    findingsByDocument.clear();
 }
 
 /**
@@ -103,8 +74,8 @@ export function clearAllFindings(): void {
  * manifest's audit trail.
  */
 export function visibleFindings(findings: PrivacyFinding[], status: FindingStatus): PrivacyFinding[] {
-    if (!showFindings) return [];
-    if (status === 'rejected' && !showRejected) return [];
+    if (!showFindings) {return [];}
+    if (status === 'rejected' && !showRejected) {return [];}
     return findings.filter(f => f.status === status && !f.resolvedAt);
 }
 
@@ -115,7 +86,7 @@ export function visibleFindings(findings: PrivacyFinding[], status: FindingStatu
  * interval-merge).
  */
 function mergeOverlappingFindings(findings: PrivacyFinding[]): PrivacyFinding[][] {
-    if (findings.length === 0) return [];
+    if (findings.length === 0) {return [];}
 
     const sorted = [...findings].sort(
         (a, b) => a.lineRange.start - b.lineRange.start || a.lineRange.end - b.lineRange.end
@@ -161,7 +132,7 @@ function decisionLinks(uri: vscode.Uri, finding: PrivacyFinding): string {
 }
 
 function formatDate(iso: string | undefined): string | undefined {
-    if (!iso) return undefined;
+    if (!iso) {return undefined;}
     const date = new Date(iso);
     return Number.isNaN(date.getTime()) ? undefined : date.toLocaleDateString();
 }
@@ -172,10 +143,10 @@ function buildHoverMessage(uri: vscode.Uri, group: PrivacyFinding[]): vscode.Mar
     md.isTrusted = true;
 
     group.forEach((finding, idx) => {
-        if (idx > 0) md.appendMarkdown('\n\n---\n\n');
+        if (idx > 0) {md.appendMarkdown('\n\n---\n\n');}
 
-        const card = getCard(finding.category);
-        md.appendMarkdown(`**[${card.id}] ${card.displayName}** · confidence: ${finding.confidence}\n\n`);
+        const rule = getRule(finding.category);
+        md.appendMarkdown(`**[${rule.id}] ${rule.displayName}** · confidence: ${finding.confidence}\n\n`);
         md.appendMarkdown(`${finding.evidence}\n\n`);
 
         if (finding.reasoning?.length) {
@@ -186,7 +157,7 @@ function buildHoverMessage(uri: vscode.Uri, group: PrivacyFinding[]): vscode.Mar
         if (finding.crossReferences?.length) {
             const related = finding.crossReferences
                 .map(category => {
-                    const other = getCard(category);
+                    const other = getRule(category);
                     return `${other.id} ${other.displayName}`;
                 })
                 .join(', ');
@@ -194,7 +165,7 @@ function buildHoverMessage(uri: vscode.Uri, group: PrivacyFinding[]): vscode.Mar
         }
 
         const firstSeen = formatDate(finding.firstSeen);
-        if (firstSeen) md.appendMarkdown(`*First seen:* ${firstSeen}\n\n`);
+        if (firstSeen) {md.appendMarkdown(`*First seen:* ${firstSeen}\n\n`);}
         if (finding.stale) {
             md.appendMarkdown(
                 '*This span could not be located in the current text - the code may have changed since it was recorded.*\n\n'
@@ -217,7 +188,7 @@ function badge(group: PrivacyFinding[], status: FindingStatus): string {
     const style = STATUS_STYLE[status];
     return group.length > 1
         ? ` ${style.mark} ${group.length} ${style.noun}`
-        : ` ${style.mark} ${getCard(group[0].category).id}`;
+        : ` ${style.mark} ${getRule(group[0].category).id}`;
 }
 
 /**
@@ -230,7 +201,7 @@ function badge(group: PrivacyFinding[], status: FindingStatus): string {
  * gets an empty `setDecorations` call, which is what clears it from the editor.
  */
 export function updateDecorations(textEditor: vscode.TextEditor): void {
-    const findings = getFindings(textEditor.document);
+    const findings = getFindings(textEditor.document.uri);
     const decorations = getDecorations();
 
     for (const status of ['undecided', 'accepted', 'rejected'] as const) {

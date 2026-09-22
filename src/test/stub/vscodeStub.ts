@@ -104,7 +104,7 @@ export class MarkdownString {
     value = '';
 
     constructor(value?: string, public supportThemeIcons = false) {
-        if (value) this.value = value;
+        if (value) {this.value = value;}
     }
 
     appendMarkdown(text: string): MarkdownString {
@@ -170,11 +170,11 @@ class StubTextDocument {
     }
 
     getText(range?: Range): string {
-        if (!range) return this.lines.join('\n');
+        if (!range) {return this.lines.join('\n');}
 
         const startLine = Math.max(0, range.start.line);
         const endLine = Math.min(this.lines.length - 1, range.end.line);
-        if (startLine > endLine) return '';
+        if (startLine > endLine) {return '';}
 
         // Trim the tail first: on a single-line range both edits hit slice[0],
         // and clipping the end before the start keeps the offsets valid.
@@ -201,7 +201,7 @@ export const workspace = {
     asRelativePath(target: Uri | string, includeWorkspaceFolder = true): string {
         const value = typeof target === 'string' ? target : target.toString();
         const folder = workspaceFolders.find(f => value.startsWith(f.uri.toString()));
-        if (!folder) return typeof target === 'string' ? target : target.fsPath;
+        if (!folder) {return typeof target === 'string' ? target : target.fsPath;}
 
         const relative = value.slice(folder.uri.toString().length).replace(/^\/+/, '');
         return includeWorkspaceFolder ? `${folder.name}/${relative}` : relative;
@@ -210,7 +210,7 @@ export const workspace = {
     fs: {
         async readFile(uri: Uri): Promise<Uint8Array> {
             const bytes = files.get(uri.toString());
-            if (!bytes) throw FileSystemError.FileNotFound(uri.toString());
+            if (!bytes) {throw FileSystemError.FileNotFound(uri.toString());}
             return bytes;
         },
         async writeFile(uri: Uri, content: Uint8Array): Promise<void> {
@@ -220,7 +220,7 @@ export const workspace = {
             directories.add(uri.toString());
         },
         async delete(uri: Uri): Promise<void> {
-            if (!files.delete(uri.toString())) throw FileSystemError.FileNotFound(uri.toString());
+            if (!files.delete(uri.toString())) {throw FileSystemError.FileNotFound(uri.toString());}
         },
     },
 

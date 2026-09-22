@@ -1,4 +1,4 @@
-import { CategoryName, isCategoryName } from './categories';
+import { CategoryName, isCategoryName } from '../rules/catalog';
 
 export const CONFIDENCE_LEVELS = ['high', 'medium', 'low'] as const;
 export type Confidence = typeof CONFIDENCE_LEVELS[number];
@@ -32,8 +32,6 @@ export function isFindingStatus(value: unknown): value is FindingStatus {
 
 /** A finding after validation and grounding, ready to decorate the editor. */
 export interface PrivacyFinding {
-    /** Local identifier from `nextFindingId()`; not supplied by the model. */
-    id: string;
     /** Stable identity across runs and sessions. See `computeFingerprint`. */
     fingerprint: string;
     category: CategoryName;
@@ -73,22 +71,22 @@ export function isStringArray(value: unknown): value is string[] {
 }
 
 export function isRawFinding(value: unknown): value is RawFinding {
-    if (typeof value !== 'object' || value === null) return false;
+    if (typeof value !== 'object' || value === null) {return false;}
     const v = value as Record<string, unknown>;
 
-    if (!isCategoryName(v.category)) return false;
-    if (typeof v.excerpt !== 'string') return false;
-    if (typeof v.evidence !== 'string') return false;
-    if (!isConfidence(v.confidence)) return false;
+    if (!isCategoryName(v.category)) {return false;}
+    if (typeof v.excerpt !== 'string') {return false;}
+    if (typeof v.evidence !== 'string') {return false;}
+    if (!isConfidence(v.confidence)) {return false;}
 
-    if (typeof v.lineRange !== 'object' || v.lineRange === null) return false;
+    if (typeof v.lineRange !== 'object' || v.lineRange === null) {return false;}
     const range = v.lineRange as Record<string, unknown>;
-    if (typeof range.start !== 'number' || !Number.isFinite(range.start)) return false;
-    if (typeof range.end !== 'number' || !Number.isFinite(range.end)) return false;
+    if (typeof range.start !== 'number' || !Number.isFinite(range.start)) {return false;}
+    if (typeof range.end !== 'number' || !Number.isFinite(range.end)) {return false;}
 
-    if (v.file !== undefined && typeof v.file !== 'string') return false;
-    if (v.reasoning !== undefined && !isStringArray(v.reasoning)) return false;
-    if (v.crossReferences !== undefined && !isStringArray(v.crossReferences)) return false;
+    if (v.file !== undefined && typeof v.file !== 'string') {return false;}
+    if (v.reasoning !== undefined && !isStringArray(v.reasoning)) {return false;}
+    if (v.crossReferences !== undefined && !isStringArray(v.crossReferences)) {return false;}
 
     return true;
 }
@@ -105,7 +103,7 @@ export const FINDING_JSON_SCHEMA = {
         properties: {
             category: {
                 type: 'string',
-                description: 'The category enum name for this request\'s card. Must match exactly.',
+                description: 'The category enum name for this request\'s rule. Must match exactly.',
             },
             file: {
                 type: 'string',
@@ -142,7 +140,7 @@ export const FINDING_JSON_SCHEMA = {
             reasoning: {
                 type: 'array',
                 items: { type: 'string' },
-                description: 'The reasoning steps that led to this match, in the style of the card\'s worked examples.',
+                description: 'The reasoning steps that led to this match, in the style of the rule\'s worked examples.',
             },
             crossReferences: {
                 type: 'array',
