@@ -106,6 +106,30 @@ export function mergeForStorage(
     return [...result.findings, ...retained];
 }
 
+/** Normalized line text --> the 1-based lines carrying it. Blank lines are omitted. */
+export type LineIndex = ReadonlyMap<string, readonly number[]>;
+
+/**
+ * Normalizes every line once, so relocating many findings against the same
+ * text costs one pass over the file instead of one pass per finding.
+ */
+export function indexLines(source: TextSource): LineIndex {
+    const index = new Map<string, number[]>();
+    for (let line = 1; line <= source.lineCount; line++) {
+        const text = source.lineAt(line);
+        if (text === undefined) {continue;}
+        const key = normalizeExcerpt(text);
+        if (key.length === 0) {continue;}
+        const lines = index.get(key);
+        if (lines) {
+            lines.push(line);
+        } else {
+            index.set(key, [line]);
+        }
+    }
+    return index;
+}
+
 /**
  * Finds where a stored span now lives in the current text.
  *
@@ -113,11 +137,14 @@ export function mergeForStorage(
  * drift. Anchoring on the excerpt's first line and preferring the candidate
  * nearest the old position re-locates the span; when the anchor is gone the
  * span is reported as stale rather than decorating arbitrary lines.
+ *
+ * Pass an `indexLines` index when relocating several spans against one text.
  */
 export function relocate(
     source: TextSource,
     excerpt: string,
-    stored: LineRange
+    stored: LineRange,
+    index?: LineIndex
 ): { lineRange: LineRange; stale: boolean } {
     const clamped = clampRange(stored, source.lineCount);
     const anchor = excerptAnchor(excerpt);
@@ -128,9 +155,10 @@ export function relocate(
         return { lineRange: clamped, stale: false };
     }
 
+    const candidates = index ? (index.get(anchor) ?? []) : scanFor(source, anchor);
+
     let best: number | undefined;
-    for (let line = 1; line <= source.lineCount; line++) {
-        if (!lineMatches(source, line, anchor)) {continue;}
+    for (const line of candidates) {
         if (best === undefined || Math.abs(line - stored.start) < Math.abs(best - stored.start)) {
             best = line;
         }
@@ -143,6 +171,14 @@ export function relocate(
         lineRange: clampRange({ start: best, end: best + span }, source.lineCount),
         stale: false,
     };
+}
+
+function scanFor(source: TextSource, anchor: string): number[] {
+    const lines: number[] = [];
+    for (let line = 1; line <= source.lineCount; line++) {
+        if (lineMatches(source, line, anchor)) {lines.push(line);}
+    }
+    return lines;
 }
 
 function lineMatches(source: TextSource, line: number, anchor: string): boolean {

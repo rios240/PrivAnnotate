@@ -113,6 +113,10 @@ export class MarkdownString {
     }
 }
 
+export class Hover {
+    constructor(public contents: MarkdownString, public range?: Range) {}
+}
+
 export enum OverviewRulerLane {
     Left = 1,
     Center = 2,
@@ -149,6 +153,7 @@ let untitledCounter = 0;
 class StubTextDocument {
     readonly uri: Uri;
     readonly isUntitled: boolean;
+    readonly version = 1;
     private readonly lines: string[];
 
     constructor(content: string, public readonly languageId: string, uri?: Uri) {
@@ -266,6 +271,12 @@ export const window = {
         return Promise.resolve(undefined);
     },
     setStatusBarMessage(_message: string, _timeout?: number) {
+        return { dispose() { /* no-op */ } };
+    },
+};
+
+export const languages = {
+    registerHoverProvider(_selector: unknown, _provider: unknown) {
         return { dispose() { /* no-op */ } };
     },
 };

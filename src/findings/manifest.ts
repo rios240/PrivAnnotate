@@ -156,6 +156,12 @@ export function manifestUri(folder: vscode.Uri): vscode.Uri {
 export class ManifestStore {
     private readonly cache = new Map<string, Manifest>();
     private readonly writeQueues = new Map<string, Promise<void>>();
+    /**
+     * What this store last put on disk per folder: the serialized text, or
+     * `null` after a reset deleted the file. Lets the file watcher tell the
+     * extension's own writes apart from a pull, a revert, or a hand edit.
+     */
+    private readonly lastWritten = new Map<string, string | null>();
 
     async load(folder: vscode.Uri): Promise<Manifest> {
         const key = folder.toString();
@@ -198,7 +204,26 @@ export class ManifestStore {
                 if (!isFileNotFound(error)) {throw error;}
             }
             this.cache.set(folder.toString(), emptyManifest());
+            this.lastWritten.set(folder.toString(), null);
         });
+    }
+
+    /**
+     * True when the file on disk is exactly what this store last wrote (or
+     * absent after its own reset) - i.e. a watcher event needs no reload.
+     * Anything this store never wrote is out of sync by definition.
+     */
+    async isInSync(folder: vscode.Uri): Promise<boolean> {
+        const key = folder.toString();
+        if (!this.lastWritten.has(key)) {return false;}
+        const expected = this.lastWritten.get(key);
+
+        try {
+            const bytes = await vscode.workspace.fs.readFile(manifestUri(folder));
+            return new TextDecoder().decode(bytes) === expected;
+        } catch (error) {
+            return isFileNotFound(error) && expected === null;
+        }
     }
 
     /** Runs `task` after every write already queued for the folder. */
@@ -213,20 +238,21 @@ export class ManifestStore {
 
     private async write(folder: vscode.Uri, manifest: Manifest): Promise<void> {
         const target = manifestUri(folder);
+        const text = serializeManifest(manifest);
         await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(folder, MANIFEST_DIR));
-        await vscode.workspace.fs.writeFile(
-            target,
-            new TextEncoder().encode(serializeManifest(manifest))
-        );
+        await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(text));
         this.cache.set(folder.toString(), manifest);
+        this.lastWritten.set(folder.toString(), text);
     }
 
     /** Drops cached state so the next load re-reads from disk. */
     invalidate(folder?: vscode.Uri): void {
         if (folder) {
             this.cache.delete(folder.toString());
+            this.lastWritten.delete(folder.toString());
         } else {
             this.cache.clear();
+            this.lastWritten.clear();
         }
     }
 }

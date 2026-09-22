@@ -6,9 +6,9 @@ import { PRIVACY_RULES, PrivacyRule } from '../rules/catalog';
 import { PrivacyFinding } from '../findings/schema';
 import { StoredFinding } from '../findings/manifest';
 import { mergeForStorage, reconcile, ReconcileResult } from '../findings/reconcile';
-import { loadStoredFindings, persistFindings } from '../findings/persistence';
+import { loadStoredFindings, persistFindings, relocateAll } from '../findings/persistence';
 import { setFindings } from '../findings/store';
-import { updateDecorations } from '../ui/decorations';
+import { refreshEditorsFor } from '../ui/decorations';
 import { reportRun } from '../ui/report';
 
 /**
@@ -23,10 +23,47 @@ interface AnalysisUnit {
     chunk: Chunk;
 }
 
+/**
+ * URIs with an analysis in flight. Two overlapping runs on one file would race
+ * on reconcile-then-persist, and the later one would silently discard the
+ * earlier one's result after paying for every request.
+ */
+const inFlight = new Set<string>();
+
+/** Claims `uri` for an analysis run; false when one is already running. */
+export function tryBeginAnalysis(uri: vscode.Uri): boolean {
+    const key = uri.toString();
+    if (inFlight.has(key)) {return false;}
+    inFlight.add(key);
+    return true;
+}
+
+export function endAnalysis(uri: vscode.Uri): void {
+    inFlight.delete(uri.toString());
+}
+
 export function registerAnalyzeCommand(context: vscode.ExtensionContext) {
   const analyzeCommand = vscode.commands.registerTextEditorCommand(
     'priv-audit.analyze',
     async (textEditor: vscode.TextEditor) => {
+      const uri = textEditor.document.uri;
+      if (!tryBeginAnalysis(uri)) {
+          vscode.window.showInformationMessage('priv-audit: this file is already being analyzed.');
+          return;
+      }
+
+      try {
+          await analyze(textEditor);
+      } finally {
+          endAnalysis(uri);
+      }
+    }
+  );
+
+  context.subscriptions.push(analyzeCommand);
+}
+
+async function analyze(textEditor: vscode.TextEditor): Promise<void> {
       await vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
@@ -48,6 +85,9 @@ export function registerAnalyzeCommand(context: vscode.ExtensionContext) {
           if (cancellationToken.isCancellationRequested) {return;}
 
           const document = textEditor.document;
+          // Findings are located by line number against the text as it was
+          // when each chunk was read; an edit mid-run moves the code under them.
+          const startVersion = document.version;
 
           progress.report({ message: 'Planning coverage...' });
 
@@ -135,12 +175,16 @@ export function registerAnalyzeCommand(context: vscode.ExtensionContext) {
 
           progress.report({ message: 'Reconciling with previous findings...' });
 
-          const fresh = results.flat();
+          // Re-anchor before reconciling: fingerprints ignore line numbers, so
+          // identity is unaffected, and every downstream view gets current lines.
+          const editedDuringRun = document.version !== startVersion;
+          const fresh = editedDuringRun ? relocateAll(document, results.flat()) : results.flat();
           const previous = await loadStoredFindings(document);
           const result = reconcile(fresh, previous);
 
           setFindings(document.uri, result.findings);
-          updateDecorations(textEditor);
+          // The originating editor may have been closed mid-run; repaint by URI.
+          refreshEditorsFor(document.uri);
 
           const saved = await persistAnalysis(document, result, previous);
 
@@ -150,13 +194,10 @@ export function registerAnalyzeCommand(context: vscode.ExtensionContext) {
               failedCategories: [...failures],
               truncation,
               saved,
+              editedDuringRun,
           });
         }
       );
-    }
-  );
-
-  context.subscriptions.push(analyzeCommand);
 }
 
 async function persistAnalysis(

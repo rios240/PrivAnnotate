@@ -7,6 +7,7 @@ import {
     CODE_INPUT_START,
     ICategoryAnalysisPromptProps,
     ITruncationInfo,
+    longestFittingPrefix,
 } from '../analysis/prompts';
 import { getRule, PRIVACY_RULES } from '../rules/catalog';
 import { containsCodeInput } from '../commands/analyze';
@@ -199,3 +200,40 @@ suite('CategoryAnalysisPrompt', () => {
 async function emptyDocument(): Promise<vscode.TextDocument> {
     return vscode.workspace.openTextDocument({ content: '', language: 'python' });
 }
+
+suite('longestFittingPrefix', () => {
+    const lines = Array.from({ length: 50 }, (_, i) => `line ${i}`);
+    // One "token" per character keeps the arithmetic checkable by hand.
+    const byChars = (text: string) => text.length;
+
+    test('keeps every line when the whole body fits, with a single count', async () => {
+        let calls = 0;
+        const n = await longestFittingPrefix(lines, 10_000, text => {
+            calls += 1;
+            return byChars(text);
+        });
+
+        assert.strictEqual(n, lines.length);
+        assert.strictEqual(calls, 1);
+    });
+
+    test('finds the longest prefix that fits, matching a linear scan', async () => {
+        for (const budget of [0, 5, 6, 60, 61, 200, 399]) {
+            let expected = 0;
+            while (expected < lines.length && byChars(lines.slice(0, expected + 1).join('\n')) <= budget) {
+                expected += 1;
+            }
+            assert.strictEqual(await longestFittingPrefix(lines, budget, byChars), expected, `budget ${budget}`);
+        }
+    });
+
+    test('needs only logarithmically many counts when trimming', async () => {
+        let calls = 0;
+        await longestFittingPrefix(lines, 100, text => {
+            calls += 1;
+            return byChars(text);
+        });
+
+        assert.ok(calls <= 1 + Math.ceil(Math.log2(lines.length)) + 1, `${calls} countTokens calls`);
+    });
+});

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { PrivacyFinding } from './schema';
 import { locate, manifestStore, StoredFinding, toStoredFinding } from './manifest';
-import { relocate, TextSource } from './reconcile';
+import { indexLines, relocate, TextSource } from './reconcile';
 import { setFindings } from './store';
 
 /** Adapts a document to the 1-based `TextSource` reconciliation works against. */
@@ -14,16 +14,30 @@ export function textSourceFor(document: vscode.TextDocument): TextSource {
 }
 
 /**
+ * Re-anchors findings on the document's current text: spans whose code moved
+ * are moved with it, and spans whose anchor line is gone are flagged stale.
+ * Used both when loading from the manifest and when the document was edited
+ * while an analysis was in flight.
+ */
+export function relocateAll<T extends StoredFinding>(
+    document: vscode.TextDocument,
+    findings: T[]
+): Array<T & { stale?: boolean }> {
+    const source = textSourceFor(document);
+    const index = indexLines(source);
+
+    return findings.map(finding => {
+        const { lineRange, stale } = relocate(source, finding.excerpt, finding.lineRange, index);
+        return { ...finding, lineRange, stale: stale || undefined };
+    });
+}
+
+/**
  * Rehydrates stored findings against the document's current text, relocating
  * spans that drifted while the file was edited outside the extension.
  */
 export function hydrate(document: vscode.TextDocument, stored: StoredFinding[]): PrivacyFinding[] {
-    const source = textSourceFor(document);
-
-    return stored.map(entry => {
-        const { lineRange, stale } = relocate(source, entry.excerpt, entry.lineRange);
-        return { ...entry, lineRange, stale: stale || undefined };
-    });
+    return relocateAll(document, stored);
 }
 
 /** Loads a document's findings from the manifest into the in-memory store. */

@@ -12,6 +12,8 @@ export interface RunContext {
     truncation?: ITruncationInfo;
     /** False when the file lives outside a workspace folder and can't be saved. */
     saved: boolean;
+    /** True when the document changed while requests were in flight. */
+    editedDuringRun?: boolean;
 }
 
 let channel: vscode.OutputChannel | undefined;
@@ -91,6 +93,12 @@ export function reportRun(
     }
     if (context.failedCategories.length > 0) {
         out.appendLine(`Warning: categories that failed: ${context.failedCategories.join(', ')}`);
+    }
+    if (context.editedDuringRun) {
+        out.appendLine(
+            'Warning: the file was edited during analysis; findings were re-anchored to the ' +
+            'current text, and any marked stale should be re-checked by running Analyze again.'
+        );
     }
     if (!context.saved) {
         out.appendLine('Warning: findings were not persisted (file is outside a workspace folder).');

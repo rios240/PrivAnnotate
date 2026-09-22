@@ -230,14 +230,10 @@ export class CodeTaskElement extends PromptElement<ICodeTaskProps, ICodeTaskStat
         const fixedCost = await sizing.countTokens(header + footer);
         const budget = sizing.tokenBudget - fixedCost;
 
-        const includedLines: string[] = [];
-        let usedTokens = 0;
-        for (const line of numberedLines) {
-            const lineTokens = await sizing.countTokens(line + '\n');
-            if (usedTokens + lineTokens > budget) break;
-            includedLines.push(line);
-            usedTokens += lineTokens;
-        }
+        const includedLines = numberedLines.slice(
+            0,
+            await longestFittingPrefix(numberedLines, budget, text => sizing.countTokens(text))
+        );
 
         const truncated = includedLines.length < numberedLines.length;
         if (truncated) {
@@ -271,6 +267,36 @@ export class CodeTaskElement extends PromptElement<ICodeTaskProps, ICodeTaskStat
             </>
         );
     }
+}
+
+/**
+ * How many leading lines fit in `budget` tokens. Chunking already sized the
+ * range to fit, so one count of the whole body settles the common case; only
+ * an overflow falls back to a binary search over prefix lengths - O(log n)
+ * counts instead of one per line. Token counts are monotone in prefix length,
+ * which is what makes the search valid.
+ */
+export async function longestFittingPrefix(
+    lines: readonly string[],
+    budget: number,
+    countTokens: (text: string) => number | Promise<number>
+): Promise<number> {
+    const fits = async (n: number) => n === 0 || (await countTokens(lines.slice(0, n).join('\n'))) <= budget;
+
+    if (await fits(lines.length)) return lines.length;
+
+    // Invariant: a prefix of `low` lines fits, one of `high` lines does not.
+    let low = 0;
+    let high = lines.length;
+    while (high - low > 1) {
+        const mid = Math.floor((low + high) / 2);
+        if (await fits(mid)) {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+    return low;
 }
 
 /* ------------------------------------------------------------------ */
