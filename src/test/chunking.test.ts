@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { CHUNK_OVERLAP_LINES, codeBudgetFor, planChunks } from '../chunking';
+import { CHUNK_OVERLAP_LINES, codeBudgetFor, planChunks } from '../analysis/chunking';
 
 /** Same rough estimate the prompt tests use: four characters to a token. */
 const estimate = async (text: string) => Math.ceil(text.length / 4);
@@ -75,6 +75,23 @@ suite('planChunks', () => {
                 overlap >= CHUNK_OVERLAP_LINES,
                 `chunks ${i - 1} and ${i} overlap by only ${overlap} lines`
             );
+        }
+    });
+
+    test('honors a custom overlap, including none', async () => {
+        const document = await documentOf(4000);
+
+        for (const overlapLines of [0, 5]) {
+            const chunks = await planChunks(document, 2000, estimate, overlapLines);
+            assert.ok(chunks.length > 1, 'precondition: the file needs several chunks');
+            for (let i = 1; i < chunks.length; i++) {
+                const overlap = chunks[i - 1].range.end.line - chunks[i].range.start.line + 1;
+                assert.strictEqual(
+                    overlap,
+                    overlapLines,
+                    `chunks ${i - 1} and ${i} with overlap ${overlapLines}`
+                );
+            }
         }
     });
 

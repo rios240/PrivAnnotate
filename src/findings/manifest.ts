@@ -1,35 +1,17 @@
 import * as vscode from 'vscode';
-import { CategoryName, isCategoryName } from '../pdc/categories';
-import {
-    Confidence,
-    FindingStatus,
-    isConfidence,
-    isFindingStatus,
-    isStringArray,
-    LineRange,
-    PrivacyFinding,
-} from '../pdc/schema';
+import { isCategoryName } from '../rules/catalog';
+import { isConfidence, isFindingStatus, isStringArray, PrivacyFinding } from './schema';
 
-export const MANIFEST_DIR = '.privaudit';
+export const MANIFEST_DIR = '.privannotate';
 export const MANIFEST_FILE = 'findings.json';
 export const MANIFEST_VERSION = 1;
 
-/** A finding as persisted: no runtime id, no path (the file entry carries it). */
-export interface StoredFinding {
-    fingerprint: string;
-    category: CategoryName;
-    lineRange: LineRange;
-    excerpt: string;
-    evidence: string;
-    confidence: Confidence;
-    reasoning?: string[];
-    crossReferences?: CategoryName[];
-    status: FindingStatus;
-    firstSeen: string;
-    lastSeen: string;
-    decidedAt?: string;
-    resolvedAt?: string;
-}
+/**
+ * A finding as persisted. Derived from `PrivacyFinding` so the two cannot drift:
+ * only the runtime-only fields are dropped - the path (the file entry carries
+ * it) and the staleness flag (recomputed on every load).
+ */
+export type StoredFinding = Omit<PrivacyFinding, 'file' | 'stale'>;
 
 export interface ManifestFileEntry {
     lastAnalyzedAt: string;
@@ -69,25 +51,53 @@ export function toStoredFinding(finding: PrivacyFinding): StoredFinding {
  * than trust it, and drop only the entries that are actually malformed.
  */
 export function isStoredFinding(value: unknown): value is StoredFinding {
-    if (typeof value !== 'object' || value === null) return false;
+    if (typeof value !== 'object' || value === null) {
+        return false;
+    }
     const v = value as Record<string, unknown>;
 
-    if (typeof v.fingerprint !== 'string' || v.fingerprint.length === 0) return false;
-    if (!isCategoryName(v.category)) return false;
-    if (typeof v.excerpt !== 'string') return false;
-    if (typeof v.evidence !== 'string') return false;
-    if (!isConfidence(v.confidence)) return false;
-    if (!isFindingStatus(v.status)) return false;
-    if (typeof v.firstSeen !== 'string' || typeof v.lastSeen !== 'string') return false;
+    if (typeof v.fingerprint !== 'string' || v.fingerprint.length === 0) {
+        return false;
+    }
+    if (!isCategoryName(v.category)) {
+        return false;
+    }
+    if (typeof v.excerpt !== 'string') {
+        return false;
+    }
+    if (typeof v.evidence !== 'string') {
+        return false;
+    }
+    if (!isConfidence(v.confidence)) {
+        return false;
+    }
+    if (!isFindingStatus(v.status)) {
+        return false;
+    }
+    if (typeof v.firstSeen !== 'string' || typeof v.lastSeen !== 'string') {
+        return false;
+    }
 
-    if (typeof v.lineRange !== 'object' || v.lineRange === null) return false;
+    if (typeof v.lineRange !== 'object' || v.lineRange === null) {
+        return false;
+    }
     const range = v.lineRange as Record<string, unknown>;
-    if (typeof range.start !== 'number' || typeof range.end !== 'number') return false;
+    if (typeof range.start !== 'number' || typeof range.end !== 'number') {
+        return false;
+    }
 
-    if (v.decidedAt !== undefined && typeof v.decidedAt !== 'string') return false;
-    if (v.resolvedAt !== undefined && typeof v.resolvedAt !== 'string') return false;
-    if (v.reasoning !== undefined && !isStringArray(v.reasoning)) return false;
-    if (v.crossReferences !== undefined && !isStringArray(v.crossReferences)) return false;
+    if (v.decidedAt !== undefined && typeof v.decidedAt !== 'string') {
+        return false;
+    }
+    if (v.resolvedAt !== undefined && typeof v.resolvedAt !== 'string') {
+        return false;
+    }
+    if (v.reasoning !== undefined && !isStringArray(v.reasoning)) {
+        return false;
+    }
+    if (v.crossReferences !== undefined && !isStringArray(v.crossReferences)) {
+        return false;
+    }
 
     return true;
 }
@@ -108,15 +118,14 @@ export function parseManifest(raw: string): Manifest {
 
     const files: Record<string, ManifestFileEntry> = {};
     for (const [path, value] of Object.entries(root.files as Record<string, unknown>)) {
-        if (typeof value !== 'object' || value === null) continue;
+        if (typeof value !== 'object' || value === null) {
+            continue;
+        }
         const entry = value as Record<string, unknown>;
-        const findings = Array.isArray(entry.findings)
-            ? entry.findings.filter(isStoredFinding)
-            : [];
+        const findings = Array.isArray(entry.findings) ? entry.findings.filter(isStoredFinding) : [];
 
         files[path] = {
-            lastAnalyzedAt:
-                typeof entry.lastAnalyzedAt === 'string' ? entry.lastAnalyzedAt : '',
+            lastAnalyzedAt: typeof entry.lastAnalyzedAt === 'string' ? entry.lastAnalyzedAt : '',
             findings,
         };
     }
@@ -151,10 +160,14 @@ export interface ManifestLocation {
 }
 
 export function locate(document: vscode.TextDocument): ManifestLocation | undefined {
-    if (document.isUntitled) return undefined;
+    if (document.isUntitled) {
+        return undefined;
+    }
 
     const folder = vscode.workspace.getWorkspaceFolder(document.uri);
-    if (!folder) return undefined;
+    if (!folder) {
+        return undefined;
+    }
 
     const relative = vscode.workspace.asRelativePath(document.uri, false).replace(/\\/g, '/');
     return { folder: folder.uri, path: relative };
@@ -174,11 +187,19 @@ export function manifestUri(folder: vscode.Uri): vscode.Uri {
 export class ManifestStore {
     private readonly cache = new Map<string, Manifest>();
     private readonly writeQueues = new Map<string, Promise<void>>();
+    /**
+     * What this store last put on disk per folder: the serialized text, or
+     * `null` after a reset deleted the file. Lets the file watcher tell the
+     * extension's own writes apart from a pull, a revert, or a hand edit.
+     */
+    private readonly lastWritten = new Map<string, string | null>();
 
     async load(folder: vscode.Uri): Promise<Manifest> {
         const key = folder.toString();
         const cached = this.cache.get(key);
-        if (cached) return cached;
+        if (cached) {
+            return cached;
+        }
 
         let manifest = emptyManifest();
         try {
@@ -186,7 +207,7 @@ export class ManifestStore {
             manifest = parseManifest(new TextDecoder().decode(bytes));
         } catch (error) {
             if (!isFileNotFound(error)) {
-                console.error('priv-audit: could not read manifest; starting empty.', error);
+                console.error('priv-annotate: could not read manifest; starting empty.', error);
             }
         }
 
@@ -213,10 +234,33 @@ export class ManifestStore {
             try {
                 await vscode.workspace.fs.delete(manifestUri(folder));
             } catch (error) {
-                if (!isFileNotFound(error)) throw error;
+                if (!isFileNotFound(error)) {
+                    throw error;
+                }
             }
             this.cache.set(folder.toString(), emptyManifest());
+            this.lastWritten.set(folder.toString(), null);
         });
+    }
+
+    /**
+     * True when the file on disk is exactly what this store last wrote (or
+     * absent after its own reset) - i.e. a watcher event needs no reload.
+     * Anything this store never wrote is out of sync by definition.
+     */
+    async isInSync(folder: vscode.Uri): Promise<boolean> {
+        const key = folder.toString();
+        if (!this.lastWritten.has(key)) {
+            return false;
+        }
+        const expected = this.lastWritten.get(key);
+
+        try {
+            const bytes = await vscode.workspace.fs.readFile(manifestUri(folder));
+            return new TextDecoder().decode(bytes) === expected;
+        } catch (error) {
+            return isFileNotFound(error) && expected === null;
+        }
     }
 
     /** Runs `task` after every write already queued for the folder. */
@@ -225,26 +269,30 @@ export class ManifestStore {
         const run = (this.writeQueues.get(key) ?? Promise.resolve()).then(task);
 
         // Keep the chain alive even if one link rejects, so later writes still run.
-        this.writeQueues.set(key, run.catch(() => undefined));
+        this.writeQueues.set(
+            key,
+            run.catch(() => undefined)
+        );
         return run;
     }
 
     private async write(folder: vscode.Uri, manifest: Manifest): Promise<void> {
         const target = manifestUri(folder);
+        const text = serializeManifest(manifest);
         await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(folder, MANIFEST_DIR));
-        await vscode.workspace.fs.writeFile(
-            target,
-            new TextEncoder().encode(serializeManifest(manifest))
-        );
+        await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(text));
         this.cache.set(folder.toString(), manifest);
+        this.lastWritten.set(folder.toString(), text);
     }
 
     /** Drops cached state so the next load re-reads from disk. */
     invalidate(folder?: vscode.Uri): void {
         if (folder) {
             this.cache.delete(folder.toString());
+            this.lastWritten.delete(folder.toString());
         } else {
             this.cache.clear();
+            this.lastWritten.clear();
         }
     }
 }

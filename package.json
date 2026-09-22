@@ -1,7 +1,7 @@
 {
-  "name": "priv-audit",
-  "displayName": "PrivAudit",
-  "description": "Automatic Privacy Audit during Code Authoring",
+  "name": "priv-annotate",
+  "displayName": "PrivAnnotate",
+  "description": "Automatic Privacy Annotating during Code Authoring",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.120.0"
@@ -16,68 +16,106 @@
   "contributes": {
     "commands": [
       {
-        "command": "priv-audit.analyze",
+        "command": "priv-annotate.analyze",
         "title": "Analyze Privacy Practices",
-        "category": "PrivAudit",
+        "category": "PrivAnnotate",
         "icon": "$(shield)"
       },
       {
-        "command": "priv-audit.showReport",
+        "command": "priv-annotate.showReport",
         "title": "Show Analysis Report",
-        "category": "PrivAudit"
+        "category": "PrivAnnotate"
       },
       {
-        "command": "priv-audit.toggleRejected",
+        "command": "priv-annotate.toggleRejected",
         "title": "Toggle Rejected Findings",
-        "category": "PrivAudit"
+        "category": "PrivAnnotate"
       },
       {
-        "command": "priv-audit.toggleFindings",
+        "command": "priv-annotate.toggleFindings",
         "title": "Toggle All Findings",
-        "category": "PrivAudit"
+        "category": "PrivAnnotate",
+        "icon": "$(eye)"
       },
       {
-        "command": "priv-audit.resetManifest",
+        "command": "priv-annotate.resetManifest",
         "title": "Reset Findings Manifest",
-        "category": "PrivAudit"
+        "category": "PrivAnnotate"
       },
       {
-        "command": "priv-audit.acceptFinding",
+        "command": "priv-annotate.acceptFinding",
         "title": "Accept Finding",
-        "category": "PrivAudit"
+        "category": "PrivAnnotate"
       },
       {
-        "command": "priv-audit.rejectFinding",
+        "command": "priv-annotate.rejectFinding",
         "title": "Reject Finding",
-        "category": "PrivAudit"
+        "category": "PrivAnnotate"
       },
       {
-        "command": "priv-audit.clearDecision",
+        "command": "priv-annotate.clearDecision",
         "title": "Clear Finding Decision",
-        "category": "PrivAudit"
+        "category": "PrivAnnotate"
       }
     ],
     "menus": {
       "editor/title": [
         {
-          "command": "priv-audit.analyze",
+          "command": "priv-annotate.analyze",
+          "group": "navigation"
+        },
+        {
+          "command": "priv-annotate.toggleFindings",
           "group": "navigation"
         }
       ],
       "commandPalette": [
         {
-          "command": "priv-audit.acceptFinding",
+          "command": "priv-annotate.acceptFinding",
           "when": "false"
         },
         {
-          "command": "priv-audit.rejectFinding",
+          "command": "priv-annotate.rejectFinding",
           "when": "false"
         },
         {
-          "command": "priv-audit.clearDecision",
+          "command": "priv-annotate.clearDecision",
           "when": "false"
+        },
+        {
+          "command": "priv-annotate.toggleRejected",
+          "when": "privAnnotate.findingsVisible"
         }
       ]
+    },
+    "configuration": {
+      "title": "PrivAnnotate",
+      "properties": {
+        "privAnnotate.model.vendor": {
+          "type": "string",
+          "default": "copilot",
+          "markdownDescription": "Language-model vendor passed to `vscode.lm.selectChatModels`. `copilot` requires GitHub Copilot Chat."
+        },
+        "privAnnotate.model.family": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Model family to request from the vendor (for example `gpt-4o`). Leave empty to use the vendor's first available model."
+        },
+        "privAnnotate.analysis.maxConcurrentRequests": {
+          "type": "integer",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 16,
+          "markdownDescription": "Detection-rule requests in flight at once during an Analyze run. Each chunk of a file costs one request per rule, so higher values finish sooner but spend quota faster."
+        },
+        "privAnnotate.analysis.chunkOverlapLines": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 0,
+          "maximum": 200,
+          "markdownDescription": "Lines repeated between adjacent chunks of a large file, so a practice that straddles a boundary is intact in at least one chunk."
+        }
+      }
     }
   },
   "scripts": {
@@ -87,7 +125,9 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test",
-    "test:unit": "npm run compile && mocha --ui tdd --require ./out/test/stub/register.js \"out/test/**/*.test.js\""
+    "test:unit": "npm run compile && mocha --ui tdd --require ./out/test/stub/register.js \"out/test/**/*.test.js\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\""
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -97,6 +137,7 @@
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.39.3",
     "mocha": "11.7.6",
+    "prettier": "3.9.8",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1"
   },

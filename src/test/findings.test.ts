@@ -7,15 +7,14 @@ import {
     serializeManifest,
     StoredFinding,
 } from '../findings/manifest';
-import { mergeForStorage, reconcile, relocate, TextSource } from '../findings/reconcile';
-import { PrivacyFinding } from '../pdc/schema';
+import { indexLines, mergeForStorage, reconcile, relocate, TextSource } from '../findings/reconcile';
+import { PrivacyFinding } from '../findings/schema';
 
 const NOW = '2026-08-27T12:00:00.000Z';
 const EARLIER = '2026-08-01T09:00:00.000Z';
 
 function fresh(excerpt: string, start = 10, end = 11): PrivacyFinding {
     return {
-        id: `id-${excerpt}`,
         fingerprint: computeFingerprint('FIRST_PARTY_COLLECTION_USE', excerpt),
         category: 'FIRST_PARTY_COLLECTION_USE',
         lineRange: { start, end },
@@ -150,7 +149,7 @@ suite('reconcile', () => {
         const result = reconcile([fresh('a = req.a')], previous, NOW);
         const merged = mergeForStorage(result, previous, NOW);
 
-        assert.strictEqual(merged.length, 2, 'the audit trail should not lose entries');
+        assert.strictEqual(merged.length, 2, 'the annotate trail should not lose entries');
         const gone = merged.find(f => f.excerpt === 'b = req.b');
         assert.strictEqual(gone?.resolvedAt, NOW);
         assert.strictEqual(merged.find(f => f.excerpt === 'a = req.a')?.resolvedAt, undefined);
@@ -199,6 +198,35 @@ suite('relocate', () => {
 
         assert.strictEqual(result.stale, true);
         assert.deepStrictEqual(result.lineRange, { start: 5, end: 5 });
+    });
+
+    test('indexLines groups lines by normalized text and skips blanks', () => {
+        const index = indexLines(source(['x = 1', '', '   x  =  1', 'y = 2']));
+        assert.deepStrictEqual(index.get('x = 1'), [1, 3]);
+        assert.deepStrictEqual(index.get('y = 2'), [4]);
+        assert.strictEqual(index.has(''), false);
+    });
+
+    test('relocating with an index gives the same answer as scanning', () => {
+        const lines = ['x = 1', 'y = 2', 'x = 1', 'z = 3', '    x = 1', 'w = 4'];
+        const text = source(lines);
+        const index = indexLines(text);
+        const cases: Array<[string, number, number]> = [
+            ['x = 1', 5, 5],
+            ['x = 1', 2, 3],
+            ['z = 3', 1, 2],
+            ['w = 4', 6, 6],
+            ['missing', 3, 4],
+            ['', 1, 1],
+        ];
+
+        for (const [excerpt, start, end] of cases) {
+            assert.deepStrictEqual(
+                relocate(text, excerpt, { start, end }, index),
+                relocate(text, excerpt, { start, end }),
+                `mismatch for ${JSON.stringify(excerpt)} at ${start}-${end}`
+            );
+        }
     });
 
     test('prefers the occurrence nearest the remembered position', () => {

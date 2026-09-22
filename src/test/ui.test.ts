@@ -1,26 +1,21 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { runWithConcurrency } from '../command';
+import { clearAllFindings, clearFindings, getFinding, getFindings, setFindings } from '../findings/store';
 import {
-    clearFindings,
-    clearAllFindings,
-    getFinding,
-    getFindings,
+    allVisibleFindings,
     isShowingFindings,
     isShowingRejected,
-    nextFindingId,
-    setFindings,
     setShowFindings,
     setShowRejected,
     visibleFindings,
-} from '../misc/decorations';
-import { PrivacyFinding } from '../pdc/schema';
+} from '../ui/decorations';
+import { buildHoverMessage, findingsAtLine } from '../ui/hover';
+import { PrivacyFinding } from '../findings/schema';
 import { computeFingerprint } from '../findings/fingerprint';
 
 function makeFinding(start: number, end: number, excerpt = 'x = request.json["x"]'): PrivacyFinding {
     const now = new Date().toISOString();
     return {
-        id: nextFindingId(),
         fingerprint: computeFingerprint('FIRST_PARTY_COLLECTION_USE', excerpt),
         category: 'FIRST_PARTY_COLLECTION_USE',
         lineRange: { start, end },
@@ -33,61 +28,6 @@ function makeFinding(start: number, end: number, excerpt = 'x = request.json["x"
     };
 }
 
-suite('runWithConcurrency', () => {
-    test('never exceeds the concurrency limit', async () => {
-        let inFlight = 0;
-        let peak = 0;
-
-        await runWithConcurrency(Array.from({ length: 8 }, (_, i) => i), 3, async () => {
-            inFlight += 1;
-            peak = Math.max(peak, inFlight);
-            await new Promise(resolve => setTimeout(resolve, 5));
-            inFlight -= 1;
-        });
-
-        assert.ok(peak <= 3, `peak concurrency was ${peak}`);
-        assert.ok(peak > 1, 'work did not actually run in parallel');
-    });
-
-    test('preserves input order regardless of completion order', async () => {
-        const delays = [30, 5, 20, 1, 15];
-        const results = await runWithConcurrency(delays, 3, async delay => {
-            await new Promise(resolve => setTimeout(resolve, delay));
-            return delay;
-        });
-
-        assert.deepStrictEqual(results, delays);
-    });
-
-    test('runs every item exactly once', async () => {
-        const seen: number[] = [];
-        await runWithConcurrency(Array.from({ length: 8 }, (_, i) => i), 3, async i => {
-            seen.push(i);
-        });
-
-        assert.deepStrictEqual([...seen].sort((a, b) => a - b), [0, 1, 2, 3, 4, 5, 6, 7]);
-    });
-
-    test('handles a limit larger than the item count', async () => {
-        const results = await runWithConcurrency([1, 2], 8, async n => n * 2);
-        assert.deepStrictEqual(results, [2, 4]);
-    });
-
-    test('a worker that swallows its own error does not stop the others', async () => {
-        // Mirrors analyzeCategory: failures are caught per unit and yield [].
-        const results = await runWithConcurrency([1, 2, 3], 3, async n => {
-            try {
-                if (n === 2) throw new Error('category failed');
-                return n;
-            } catch {
-                return 0;
-            }
-        });
-
-        assert.deepStrictEqual(results, [1, 0, 3]);
-    });
-});
-
 suite('finding store', () => {
     let document: vscode.TextDocument;
 
@@ -96,17 +36,17 @@ suite('finding store', () => {
             content: Array.from({ length: 40 }, (_, i) => `line ${i + 1}`).join('\n'),
             language: 'python',
         });
-        clearFindings(document);
+        clearFindings(document.uri);
     });
 
-    teardown(() => clearFindings(document));
+    teardown(() => clearFindings(document.uri));
 
     test('setFindings replaces the whole file rather than accumulating', () => {
         setFindings(document.uri, [makeFinding(2, 3, 'a = req.a'), makeFinding(9, 12, 'b = req.b')]);
         setFindings(document.uri, [makeFinding(14, 15, 'c = req.c')]);
 
         assert.deepStrictEqual(
-            getFindings(document).map(f => `${f.lineRange.start}-${f.lineRange.end}`),
+            getFindings(document.uri).map(f => `${f.lineRange.start}-${f.lineRange.end}`),
             ['14-15']
         );
     });
@@ -115,14 +55,14 @@ suite('finding store', () => {
         setFindings(document.uri, [makeFinding(11, 12)]);
         setFindings(document.uri, []);
 
-        assert.deepStrictEqual(getFindings(document), []);
+        assert.deepStrictEqual(getFindings(document.uri), []);
     });
 
     test('getFinding looks up by fingerprint', () => {
         const finding = makeFinding(11, 12, 'lat = request.json["lat"]');
         setFindings(document.uri, [finding]);
 
-        assert.strictEqual(getFinding(document.uri, finding.fingerprint)?.id, finding.id);
+        assert.strictEqual(getFinding(document.uri, finding.fingerprint), finding);
         assert.strictEqual(getFinding(document.uri, 'deadbeefdeadbeef'), undefined);
     });
 
@@ -133,8 +73,8 @@ suite('finding store', () => {
 
         clearAllFindings();
 
-        assert.deepStrictEqual(getFindings(document), []);
-        assert.deepStrictEqual(getFindings(other), []);
+        assert.deepStrictEqual(getFindings(document.uri), []);
+        assert.deepStrictEqual(getFindings(other.uri), []);
     });
 });
 
@@ -188,6 +128,52 @@ suite('decoration visibility', () => {
     });
 
     test('filters by the requested status only', () => {
-        assert.deepStrictEqual(visibleFindings(all, 'accepted').map(f => f.excerpt), ['b = req.b']);
+        assert.deepStrictEqual(
+            visibleFindings(all, 'accepted').map(f => f.excerpt),
+            ['b = req.b']
+        );
+    });
+});
+
+suite('hover', () => {
+    const a = makeFinding(2, 4, 'a = req.a');
+    const b = makeFinding(4, 6, 'b = req.b');
+    const c = makeFinding(9, 9, 'c = req.c');
+
+    teardown(() => {
+        setShowRejected(false);
+        setShowFindings(true);
+    });
+
+    test('findingsAtLine returns every finding covering the line, in reading order', () => {
+        assert.deepStrictEqual(
+            findingsAtLine([b, c, a], 4).map(f => f.excerpt),
+            ['a = req.a', 'b = req.b']
+        );
+        assert.deepStrictEqual(
+            findingsAtLine([a, b, c], 9).map(f => f.excerpt),
+            ['c = req.c']
+        );
+        assert.deepStrictEqual(findingsAtLine([a, b, c], 7), []);
+    });
+
+    test('hovers only describe findings that are painted', () => {
+        const rejected = { ...makeFinding(4, 4, 'r = req.r'), status: 'rejected' as const };
+        const lines = () => findingsAtLine(allVisibleFindings([a, rejected]), 4).map(f => f.excerpt);
+
+        assert.deepStrictEqual(lines(), ['a = req.a']);
+        setShowRejected(true);
+        assert.deepStrictEqual(lines(), ['a = req.a', 'r = req.r']);
+        setShowFindings(false);
+        assert.deepStrictEqual(lines(), []);
+    });
+
+    test('hover text carries the rule, evidence, and decision links', () => {
+        const md = buildHoverMessage(vscode.Uri.parse('file:///workspace/src/app.py'), [a]);
+
+        assert.ok(md.value.includes('[FP-01]'));
+        assert.ok(md.value.includes('Reads user-supplied data.'));
+        assert.ok(md.value.includes('command:priv-annotate.acceptFinding'));
+        assert.ok(md.value.includes('command:priv-annotate.rejectFinding'));
     });
 });

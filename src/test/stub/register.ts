@@ -14,6 +14,8 @@ const moduleWithLoad = Module as unknown as { _load: Loader };
 const originalLoad = moduleWithLoad._load;
 
 moduleWithLoad._load = function (request, parent, isMain) {
-    if (request === 'vscode') return vscodeStub;
+    if (request === 'vscode') {
+        return vscodeStub;
+    }
     return originalLoad.call(this, request, parent, isMain);
 };

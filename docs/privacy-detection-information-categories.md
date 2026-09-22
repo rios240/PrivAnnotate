@@ -1,14 +1,14 @@
-# Privacy Practice Detection Cards
-### A LINDDUN GO-style card set for LLM-based source code annotation
+# Privacy Practice Detection Rules
+### Detection rules for LLM-based source code annotation
 
-Adapted from the OPP-115 taxonomy (Wilson et al., 2016) and the LINDDUN GO card
-format (DistriNet, KU Leuven). Each card targets one code-relevant
-data-practice category. Cards are designed to be dropped directly into an
+Adapted from the OPP-115 taxonomy (Wilson et al., 2016); each rule's structure
+follows the LINDDUN GO card format (DistriNet, KU Leuven). Each rule targets one
+code-relevant data-practice category. Rules are designed to be dropped directly into an
 LLM prompt as few-shot components: the *chain-of-thought description &
 elicitation questions* field guides the model's reasoning process, and the
 *chain-of-thought examples* field supplies worked positive/negative exemplars.
 
-Cards FP-01 through DS-06 cover the first six OPP-115 categories. DNT-07
+Rules FP-01 through DS-06 cover the first six OPP-115 categories. DNT-07
 extends the set with OPP-115's ninth category, Do Not Track, reformulated
 for code. AI-08 is a custom category, not present in OPP-115 (which predates
 widespread LLM/ML integration into applications) - added to capture a
@@ -391,7 +391,7 @@ Conclusion: No match for Data Security - no protective mechanism is
 implemented. (This span would instead be flagged under FP-01 for storing
 the password; a downstream comparison against a policy that promises
 "passwords are securely hashed" would surface a real inconsistency here -
-but that judgment belongs to the comparison stage, not this card.)
+but that judgment belongs to the comparison stage, not this rule.)
 
 ---
 
@@ -596,7 +596,7 @@ detection boundary, consistent with PAPEL's finding that simple,
 well-structured prompts with worked examples outperform elaborate
 unstructured instructions.
 
-Several cards explicitly cross-reference one another (TP-02 and FP-01,
+Several rules explicitly cross-reference one another (TP-02 and FP-01,
 UA-04 and DS-06, AI-08 and DR-05/UA-04/TP-02). This is intentional and worth
 preserving in the prompt: a single code span often legitimately matches
 more than one category, and a downstream comparison stage benefits from

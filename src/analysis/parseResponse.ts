@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
-import { CategoryName, isCategoryName, CATEGORY_BY_CARD_ID, PdcCard } from './pdc/categories';
-import { downgradeConfidence, isRawFinding, PrivacyFinding, RawFinding } from './pdc/schema';
-import { nextFindingId } from './misc/decorations';
-import { computeFingerprint, stripLinePrefix } from './findings/fingerprint';
+import { CategoryName, isCategoryName, CATEGORY_BY_RULE_ID, PrivacyRule } from '../rules/catalog';
+import { downgradeConfidence, isRawFinding, PrivacyFinding, RawFinding } from '../findings/schema';
+import { computeFingerprint, stripLinePrefix } from '../findings/fingerprint';
 
 /** Everything the parser needs to ground a finding against real source text. */
 export interface ParseContext {
@@ -16,10 +15,7 @@ export interface ParseContext {
     filePath?: string;
 }
 
-export function buildParseContext(
-    document: vscode.TextDocument,
-    range: vscode.Range
-): ParseContext {
+export function buildParseContext(document: vscode.TextDocument, range: vscode.Range): ParseContext {
     return {
         lineText: line =>
             line >= 1 && line <= document.lineCount ? document.lineAt(line - 1).text : undefined,
@@ -43,7 +39,9 @@ export function extractJsonArray(text: string): string | undefined {
 
     const start = cleaned.indexOf('[');
     const end = cleaned.lastIndexOf(']');
-    if (start === -1 || end === -1 || end < start) return undefined;
+    if (start === -1 || end === -1 || end < start) {
+        return undefined;
+    }
 
     return cleaned.slice(start, end + 1);
 }
@@ -63,34 +61,40 @@ function isExcerptGrounded(excerpt: string, start: number, end: number, ctx: Par
         .map(line => normalize(stripLinePrefix(line)))
         .find(line => line.length > 0);
 
-    if (!firstLine) return false;
+    if (!firstLine) {
+        return false;
+    }
 
     for (let line = start; line <= end; line++) {
         const source = ctx.lineText(line);
-        if (source && normalize(source).includes(firstLine)) return true;
+        if (source && normalize(source).includes(firstLine)) {
+            return true;
+        }
     }
     return false;
 }
 
 /**
- * Accepts either a category enum name or a card ID (models sometimes answer
+ * Accepts either a category enum name or a rule ID (models sometimes answer
  * "TP-02" where the schema asks for the enum), and rejects anything else.
  */
 function resolveCategory(value: string): CategoryName | undefined {
-    if (isCategoryName(value)) return value;
-    return CATEGORY_BY_CARD_ID.get(value.trim().toUpperCase());
+    if (isCategoryName(value)) {
+        return value;
+    }
+    return CATEGORY_BY_RULE_ID.get(value.trim().toUpperCase());
 }
 
-function toFinding(raw: RawFinding, card: PdcCard, ctx: ParseContext): PrivacyFinding | undefined {
+function toFinding(raw: RawFinding, rule: PrivacyRule, ctx: ParseContext): PrivacyFinding | undefined {
     const start = Math.round(raw.lineRange.start);
     const end = Math.round(raw.lineRange.end);
 
     if (start > end) {
-        console.warn(`priv-audit: [${card.id}] dropping finding with inverted line range`, raw.lineRange);
+        console.warn(`priv-annotate: [${rule.id}] dropping finding with inverted line range`, raw.lineRange);
         return undefined;
     }
     if (end < ctx.rangeStart || start > ctx.rangeEnd) {
-        console.warn(`priv-audit: [${card.id}] dropping finding outside the analyzed range`, raw.lineRange);
+        console.warn(`priv-annotate: [${rule.id}] dropping finding outside the analyzed range`, raw.lineRange);
         return undefined;
     }
 
@@ -100,23 +104,22 @@ function toFinding(raw: RawFinding, card: PdcCard, ctx: ParseContext): PrivacyFi
     let confidence = raw.confidence;
     if (!isExcerptGrounded(raw.excerpt, clampedStart, clampedEnd, ctx)) {
         console.warn(
-            `priv-audit: [${card.id}] excerpt not found at lines ${clampedStart}-${clampedEnd}; ` +
-            'downgrading confidence'
+            `priv-annotate: [${rule.id}] excerpt not found at lines ${clampedStart}-${clampedEnd}; ` +
+                'downgrading confidence'
         );
         confidence = downgradeConfidence(confidence);
     }
 
     const crossReferences = (raw.crossReferences ?? [])
         .map(resolveCategory)
-        .filter((name): name is CategoryName => name !== undefined && name !== card.category);
+        .filter((name): name is CategoryName => name !== undefined && name !== rule.category);
 
     const now = new Date().toISOString();
 
     return {
-        id: nextFindingId(),
-        fingerprint: computeFingerprint(card.category, raw.excerpt),
-        // The card decides the category, not the model - one request, one lane.
-        category: card.category,
+        fingerprint: computeFingerprint(rule.category, raw.excerpt),
+        // The rule decides the category, not the model - one request, one lane.
+        category: rule.category,
         file: ctx.filePath,
         lineRange: { start: clampedStart, end: clampedEnd },
         excerpt: raw.excerpt,
@@ -136,14 +139,10 @@ function toFinding(raw: RawFinding, card: PdcCard, ctx: ParseContext): PrivacyFi
  * Turns one category's response into findings. Never throws: a category that
  * answers with garbage yields no findings and does not sink the other seven.
  */
-export function parseCategoryFindings(
-    text: string,
-    card: PdcCard,
-    ctx: ParseContext
-): PrivacyFinding[] {
+export function parseCategoryFindings(text: string, rule: PrivacyRule, ctx: ParseContext): PrivacyFinding[] {
     const json = extractJsonArray(text);
     if (json === undefined) {
-        console.warn(`priv-audit: [${card.id}] response contained no JSON array:`, text.slice(0, 200));
+        console.warn(`priv-annotate: [${rule.id}] response contained no JSON array:`, text.slice(0, 200));
         return [];
     }
 
@@ -151,23 +150,25 @@ export function parseCategoryFindings(
     try {
         parsed = JSON.parse(json);
     } catch (error) {
-        console.warn(`priv-audit: [${card.id}] malformed JSON response:`, json.slice(0, 200), error);
+        console.warn(`priv-annotate: [${rule.id}] malformed JSON response:`, json.slice(0, 200), error);
         return [];
     }
 
     if (!Array.isArray(parsed)) {
-        console.warn(`priv-audit: [${card.id}] expected a JSON array, got:`, typeof parsed);
+        console.warn(`priv-annotate: [${rule.id}] expected a JSON array, got:`, typeof parsed);
         return [];
     }
 
     const findings: PrivacyFinding[] = [];
     for (const entry of parsed) {
         if (!isRawFinding(entry)) {
-            console.warn(`priv-audit: [${card.id}] skipping element that does not match the schema:`, entry);
+            console.warn(`priv-annotate: [${rule.id}] skipping element that does not match the schema:`, entry);
             continue;
         }
-        const finding = toFinding(entry, card, ctx);
-        if (finding) findings.push(finding);
+        const finding = toFinding(entry, rule, ctx);
+        if (finding) {
+            findings.push(finding);
+        }
     }
 
     return findings;
@@ -176,12 +177,12 @@ export function parseCategoryFindings(
 /** Drains the streamed response, then parses it. */
 export async function parseCategoryResponse(
     response: vscode.LanguageModelChatResponse,
-    card: PdcCard,
+    rule: PrivacyRule,
     ctx: ParseContext
 ): Promise<PrivacyFinding[]> {
     let fullText = '';
     for await (const fragment of response.text) {
         fullText += fragment;
     }
-    return parseCategoryFindings(fullText, card, ctx);
+    return parseCategoryFindings(fullText, rule, ctx);
 }

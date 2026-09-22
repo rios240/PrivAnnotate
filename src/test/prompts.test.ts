@@ -7,9 +7,10 @@ import {
     CODE_INPUT_START,
     ICategoryAnalysisPromptProps,
     ITruncationInfo,
-} from '../prompts';
-import { getCard, PDC_CARDS } from '../pdc/categories';
-import { containsCodeInput } from '../command';
+    longestFittingPrefix,
+} from '../analysis/prompts';
+import { getRule, PRIVACY_RULES } from '../rules/catalog';
+import { containsCodeInput } from '../commands/analyze';
 
 const SAMPLE = [
     'def checkin():',
@@ -35,8 +36,7 @@ async function render(
     model = stubModel()
 ): Promise<string> {
     const document =
-        props.document ??
-        (await vscode.workspace.openTextDocument({ content: SAMPLE, language: 'python' }));
+        props.document ?? (await vscode.workspace.openTextDocument({ content: SAMPLE, language: 'python' }));
 
     const { messages } = await renderPrompt(
         CategoryAnalysisPrompt,
@@ -46,61 +46,59 @@ async function render(
     );
 
     return messages
-        .flatMap(message =>
-            message.content.map(part => ('value' in part ? String(part.value) : ''))
-        )
+        .flatMap(message => message.content.map(part => ('value' in part ? String(part.value) : '')))
         .join('\n');
 }
 
 suite('CategoryAnalysisPrompt', () => {
-    test('includes exactly one card and no other card by id', async () => {
-        for (const card of PDC_CARDS) {
-            const text = await render({ card });
-            const others = PDC_CARDS.filter(c => c.id !== card.id);
+    test('includes exactly one rule and no other rule by id', async () => {
+        for (const rule of PRIVACY_RULES) {
+            const text = await render({ rule });
+            const others = PRIVACY_RULES.filter(c => c.id !== rule.id);
 
-            assert.ok(text.includes(card.id), `${card.id} prompt omits its own card id`);
+            assert.ok(text.includes(rule.id), `${rule.id} prompt omits its own rule id`);
 
             for (const other of others) {
-                // A card may legitimately name another in its cross-reference
-                // line; what must never appear is another card's own content.
+                // A rule may legitimately name another in its cross-reference
+                // line; what must never appear is another rule's own content.
                 assert.ok(
                     !text.includes(other.chainOfThought),
-                    `${card.id} prompt leaked ${other.id}'s reasoning guidance`
+                    `${rule.id} prompt leaked ${other.id}'s reasoning guidance`
                 );
                 assert.ok(
                     !text.includes(other.baseDescription),
-                    `${card.id} prompt leaked ${other.id}'s base description`
+                    `${rule.id} prompt leaked ${other.id}'s base description`
                 );
             }
         }
     });
 
-    test('carries the card content the framework supplies', async () => {
-        const card = getCard('AI_USAGE');
-        const text = await render({ card });
+    test('carries the rule content the framework supplies', async () => {
+        const rule = getRule('AI_USAGE');
+        const text = await render({ rule });
 
-        assert.ok(text.includes(card.displayName));
-        assert.ok(text.includes(card.baseDescription));
-        assert.ok(text.includes(card.chainOfThought));
-        for (const question of card.elicitationQuestions) {
+        assert.ok(text.includes(rule.displayName));
+        assert.ok(text.includes(rule.baseDescription));
+        assert.ok(text.includes(rule.chainOfThought));
+        for (const question of rule.elicitationQuestions) {
             assert.ok(text.includes(question), `missing elicitation question: ${question}`);
         }
-        for (const example of card.examples) {
+        for (const example of rule.examples) {
             assert.ok(text.includes(example.code), `missing example code for ${example.label}`);
             assert.ok(text.includes(example.conclusion), `missing conclusion for ${example.label}`);
         }
     });
 
     test('renders both the positive and the negative exemplar', async () => {
-        const card = getCard('DO_NOT_TRACK');
-        const text = await render({ card });
+        const rule = getRule('DO_NOT_TRACK');
+        const text = await render({ rule });
 
         assert.ok(text.includes('Positive match'));
         assert.ok(text.includes('Negative (non-match)'));
     });
 
     test('fences the code in boundary delimiters with 1-based line numbers', async () => {
-        const text = await render({ card: getCard('FIRST_PARTY_COLLECTION_USE') });
+        const text = await render({ rule: getRule('FIRST_PARTY_COLLECTION_USE') });
 
         assert.ok(text.includes(CODE_INPUT_START));
         assert.ok(text.includes(CODE_INPUT_END));
@@ -115,7 +113,7 @@ suite('CategoryAnalysisPrompt', () => {
             language: 'python',
         });
         const text = await render({
-            card: getCard('DATA_SECURITY'),
+            rule: getRule('DATA_SECURITY'),
             document,
             range: new vscode.Range(9, 0, 11, 0),
         });
@@ -126,19 +124,19 @@ suite('CategoryAnalysisPrompt', () => {
     });
 
     test('states the output contract and the requested category', async () => {
-        const card = getCard('THIRD_PARTY_SHARING_COLLECTION');
-        const text = await render({ card });
+        const rule = getRule('THIRD_PARTY_SHARING_COLLECTION');
+        const text = await render({ rule });
 
         assert.ok(text.includes('single JSON array'));
         assert.ok(text.includes('crossReferences'));
-        assert.ok(text.includes(card.category));
+        assert.ok(text.includes(rule.category));
     });
 
     test('includes the file path only when one is supplied', async () => {
-        const card = getCard('DATA_RETENTION');
+        const rule = getRule('DATA_RETENTION');
 
-        assert.ok((await render({ card, filePath: 'src/jobs/purge.py' })).includes('src/jobs/purge.py'));
-        assert.ok(!(await render({ card })).includes('FILE:'));
+        assert.ok((await render({ rule, filePath: 'src/jobs/purge.py' })).includes('src/jobs/purge.py'));
+        assert.ok(!(await render({ rule })).includes('FILE:'));
     });
 
     test('reports truncation when the code does not fit the budget', async () => {
@@ -150,7 +148,7 @@ suite('CategoryAnalysisPrompt', () => {
         const seen: ITruncationInfo[] = [];
         const text = await render(
             {
-                card: getCard('FIRST_PARTY_COLLECTION_USE'),
+                rule: getRule('FIRST_PARTY_COLLECTION_USE'),
                 document,
                 onTruncated: info => seen.push(info),
             },
@@ -164,7 +162,7 @@ suite('CategoryAnalysisPrompt', () => {
     });
 
     test('keeps the code when the budget forces something to be dropped', async () => {
-        // The card's examples are the affordable loss; the code is not. A prompt
+        // The rule's examples are the affordable loss; the code is not. A prompt
         // whose code was pruned away is a wasted request.
         const document = await vscode.workspace.openTextDocument({
             content: Array.from({ length: 4000 }, (_, i) => `x_${i} = compute_${i}()`).join('\n'),
@@ -174,7 +172,7 @@ suite('CategoryAnalysisPrompt', () => {
         const model = stubModel(4000);
         const { messages } = await renderPrompt(
             CategoryAnalysisPrompt,
-            { card: getCard('FIRST_PARTY_COLLECTION_USE'), document },
+            { rule: getRule('FIRST_PARTY_COLLECTION_USE'), document },
             { modelMaxPromptTokens: model.maxInputTokens },
             model
         );
@@ -186,7 +184,7 @@ suite('CategoryAnalysisPrompt', () => {
         const model = stubModel();
         const { messages } = await renderPrompt(
             CategoryAnalysisPrompt,
-            { card: getCard('FIRST_PARTY_COLLECTION_USE'), document: await emptyDocument() },
+            { rule: getRule('FIRST_PARTY_COLLECTION_USE'), document: await emptyDocument() },
             { modelMaxPromptTokens: model.maxInputTokens },
             model
         );
@@ -199,3 +197,44 @@ suite('CategoryAnalysisPrompt', () => {
 async function emptyDocument(): Promise<vscode.TextDocument> {
     return vscode.workspace.openTextDocument({ content: '', language: 'python' });
 }
+
+suite('longestFittingPrefix', () => {
+    const lines = Array.from({ length: 50 }, (_, i) => `line ${i}`);
+    // One "token" per character keeps the arithmetic checkable by hand.
+    const byChars = (text: string) => text.length;
+
+    test('keeps every line when the whole body fits, with a single count', async () => {
+        let calls = 0;
+        const n = await longestFittingPrefix(lines, 10_000, text => {
+            calls += 1;
+            return byChars(text);
+        });
+
+        assert.strictEqual(n, lines.length);
+        assert.strictEqual(calls, 1);
+    });
+
+    test('finds the longest prefix that fits, matching a linear scan', async () => {
+        for (const budget of [0, 5, 6, 60, 61, 200, 399]) {
+            let expected = 0;
+            while (expected < lines.length && byChars(lines.slice(0, expected + 1).join('\n')) <= budget) {
+                expected += 1;
+            }
+            assert.strictEqual(
+                await longestFittingPrefix(lines, budget, byChars),
+                expected,
+                `budget ${budget}`
+            );
+        }
+    });
+
+    test('needs only logarithmically many counts when trimming', async () => {
+        let calls = 0;
+        await longestFittingPrefix(lines, 100, text => {
+            calls += 1;
+            return byChars(text);
+        });
+
+        assert.ok(calls <= 1 + Math.ceil(Math.log2(lines.length)) + 1, `${calls} countTokens calls`);
+    });
+});

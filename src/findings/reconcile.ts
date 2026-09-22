@@ -1,4 +1,4 @@
-import { LineRange, PrivacyFinding } from '../pdc/schema';
+import { LineRange, PrivacyFinding } from './schema';
 import { StoredFinding } from './manifest';
 import { excerptAnchor, normalizeExcerpt } from './fingerprint';
 
@@ -47,7 +47,9 @@ export function reconcile(
 
     for (const finding of fresh) {
         // A single run can surface the same span twice via overlapping chunks.
-        if (seen.has(finding.fingerprint)) continue;
+        if (seen.has(finding.fingerprint)) {
+            continue;
+        }
         seen.add(finding.fingerprint);
 
         const previous = storedByFingerprint.get(finding.fingerprint);
@@ -69,7 +71,9 @@ export function reconcile(
         };
 
         findings.push(entry);
-        if (previous.resolvedAt) reopened.push(entry);
+        if (previous.resolvedAt) {
+            reopened.push(entry);
+        }
         if (entry.status === 'rejected') {
             suppressed.push(entry);
         } else {
@@ -85,7 +89,7 @@ export function reconcile(
 /**
  * Merges a run's findings with the manifest entries it did not re-observe.
  * Entries missing from the run are retained and stamped `resolvedAt`, so the
- * manifest keeps the full audit trail rather than silently forgetting them.
+ * manifest keeps the full annotate trail rather than silently forgetting them.
  */
 export function mergeForStorage(
     result: ReconcileResult,
@@ -96,15 +100,44 @@ export function mergeForStorage(
     const retained: PrivacyFinding[] = [];
 
     for (const previous of stored) {
-        if (fresh.has(previous.fingerprint)) continue;
+        if (fresh.has(previous.fingerprint)) {
+            continue;
+        }
         retained.push({
             ...previous,
-            id: `stored-${previous.fingerprint}`,
             resolvedAt: previous.resolvedAt ?? now,
         });
     }
 
     return [...result.findings, ...retained];
+}
+
+/** Normalized line text --> the 1-based lines carrying it. Blank lines are omitted. */
+export type LineIndex = ReadonlyMap<string, readonly number[]>;
+
+/**
+ * Normalizes every line once, so relocating many findings against the same
+ * text costs one pass over the file instead of one pass per finding.
+ */
+export function indexLines(source: TextSource): LineIndex {
+    const index = new Map<string, number[]>();
+    for (let line = 1; line <= source.lineCount; line++) {
+        const text = source.lineAt(line);
+        if (text === undefined) {
+            continue;
+        }
+        const key = normalizeExcerpt(text);
+        if (key.length === 0) {
+            continue;
+        }
+        const lines = index.get(key);
+        if (lines) {
+            lines.push(line);
+        } else {
+            index.set(key, [line]);
+        }
+    }
+    return index;
 }
 
 /**
@@ -114,36 +147,54 @@ export function mergeForStorage(
  * drift. Anchoring on the excerpt's first line and preferring the candidate
  * nearest the old position re-locates the span; when the anchor is gone the
  * span is reported as stale rather than decorating arbitrary lines.
+ *
+ * Pass an `indexLines` index when relocating several spans against one text.
  */
 export function relocate(
     source: TextSource,
     excerpt: string,
-    stored: LineRange
+    stored: LineRange,
+    index?: LineIndex
 ): { lineRange: LineRange; stale: boolean } {
     const clamped = clampRange(stored, source.lineCount);
     const anchor = excerptAnchor(excerpt);
-    if (!anchor) return { lineRange: clamped, stale: true };
+    if (!anchor) {
+        return { lineRange: clamped, stale: true };
+    }
 
     // Already correct: the common case, and cheaper than scanning the file.
     if (lineMatches(source, clamped.start, anchor)) {
         return { lineRange: clamped, stale: false };
     }
 
+    const candidates = index ? (index.get(anchor) ?? []) : scanFor(source, anchor);
+
     let best: number | undefined;
-    for (let line = 1; line <= source.lineCount; line++) {
-        if (!lineMatches(source, line, anchor)) continue;
+    for (const line of candidates) {
         if (best === undefined || Math.abs(line - stored.start) < Math.abs(best - stored.start)) {
             best = line;
         }
     }
 
-    if (best === undefined) return { lineRange: clamped, stale: true };
+    if (best === undefined) {
+        return { lineRange: clamped, stale: true };
+    }
 
     const span = Math.max(0, stored.end - stored.start);
     return {
         lineRange: clampRange({ start: best, end: best + span }, source.lineCount),
         stale: false,
     };
+}
+
+function scanFor(source: TextSource, anchor: string): number[] {
+    const lines: number[] = [];
+    for (let line = 1; line <= source.lineCount; line++) {
+        if (lineMatches(source, line, anchor)) {
+            lines.push(line);
+        }
+    }
+    return lines;
 }
 
 function lineMatches(source: TextSource, line: number, anchor: string): boolean {

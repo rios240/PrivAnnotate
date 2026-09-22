@@ -10,7 +10,10 @@
  */
 
 export class Position {
-    constructor(public readonly line: number, public readonly character: number) {}
+    constructor(
+        public readonly line: number,
+        public readonly character: number
+    ) {}
 
     isBefore(other: Position): boolean {
         return this.line < other.line || (this.line === other.line && this.character < other.character);
@@ -68,7 +71,10 @@ export class Uri {
 }
 
 export class FileSystemError extends Error {
-    constructor(message: string, public readonly code: string) {
+    constructor(
+        message: string,
+        public readonly code: string
+    ) {
         super(message);
     }
 
@@ -88,6 +94,13 @@ export function __setWorkspaceFolder(uri: Uri, name = 'workspace'): void {
     workspaceFolders.push({ uri, name, index: 0 });
 }
 
+let configuration: Record<string, unknown> = {};
+
+/** Test helper: the values `workspace.getConfiguration().get` returns. */
+export function __setConfiguration(values: Record<string, unknown>): void {
+    configuration = { ...values };
+}
+
 /** Test helper: empties the in-memory file system. */
 export function __resetFileSystem(): void {
     files.clear();
@@ -103,14 +116,26 @@ export function __readFile(uri: Uri): string | undefined {
 export class MarkdownString {
     value = '';
 
-    constructor(value?: string, public supportThemeIcons = false) {
-        if (value) this.value = value;
+    constructor(
+        value?: string,
+        public supportThemeIcons = false
+    ) {
+        if (value) {
+            this.value = value;
+        }
     }
 
     appendMarkdown(text: string): MarkdownString {
         this.value += text;
         return this;
     }
+}
+
+export class Hover {
+    constructor(
+        public contents: MarkdownString,
+        public range?: Range
+    ) {}
 }
 
 export enum OverviewRulerLane {
@@ -149,9 +174,14 @@ let untitledCounter = 0;
 class StubTextDocument {
     readonly uri: Uri;
     readonly isUntitled: boolean;
+    readonly version = 1;
     private readonly lines: string[];
 
-    constructor(content: string, public readonly languageId: string, uri?: Uri) {
+    constructor(
+        content: string,
+        public readonly languageId: string,
+        uri?: Uri
+    ) {
         untitledCounter += 1;
         this.uri = uri ?? Uri.parse(`untitled:Untitled-${untitledCounter}`);
         this.isUntitled = uri === undefined;
@@ -170,11 +200,15 @@ class StubTextDocument {
     }
 
     getText(range?: Range): string {
-        if (!range) return this.lines.join('\n');
+        if (!range) {
+            return this.lines.join('\n');
+        }
 
         const startLine = Math.max(0, range.start.line);
         const endLine = Math.min(this.lines.length - 1, range.end.line);
-        if (startLine > endLine) return '';
+        if (startLine > endLine) {
+            return '';
+        }
 
         // Trim the tail first: on a single-line range both edits hit slice[0],
         // and clipping the end before the start keeps the offsets valid.
@@ -201,7 +235,9 @@ export const workspace = {
     asRelativePath(target: Uri | string, includeWorkspaceFolder = true): string {
         const value = typeof target === 'string' ? target : target.toString();
         const folder = workspaceFolders.find(f => value.startsWith(f.uri.toString()));
-        if (!folder) return typeof target === 'string' ? target : target.fsPath;
+        if (!folder) {
+            return typeof target === 'string' ? target : target.fsPath;
+        }
 
         const relative = value.slice(folder.uri.toString().length).replace(/^\/+/, '');
         return includeWorkspaceFolder ? `${folder.name}/${relative}` : relative;
@@ -210,7 +246,9 @@ export const workspace = {
     fs: {
         async readFile(uri: Uri): Promise<Uint8Array> {
             const bytes = files.get(uri.toString());
-            if (!bytes) throw FileSystemError.FileNotFound(uri.toString());
+            if (!bytes) {
+                throw FileSystemError.FileNotFound(uri.toString());
+            }
             return bytes;
         },
         async writeFile(uri: Uri, content: Uint8Array): Promise<void> {
@@ -220,16 +258,46 @@ export const workspace = {
             directories.add(uri.toString());
         },
         async delete(uri: Uri): Promise<void> {
-            if (!files.delete(uri.toString())) throw FileSystemError.FileNotFound(uri.toString());
+            if (!files.delete(uri.toString())) {
+                throw FileSystemError.FileNotFound(uri.toString());
+            }
         },
+    },
+
+    getConfiguration(_section?: string) {
+        return {
+            get<T>(key: string, defaultValue?: T): T | undefined {
+                return (key in configuration ? configuration[key] : defaultValue) as T | undefined;
+            },
+        };
     },
 
     createFileSystemWatcher(_glob: string) {
         return {
-            onDidChange() { return { dispose() { /* no-op */ } }; },
-            onDidCreate() { return { dispose() { /* no-op */ } }; },
-            onDidDelete() { return { dispose() { /* no-op */ } }; },
-            dispose() { /* no-op */ },
+            onDidChange() {
+                return {
+                    dispose() {
+                        /* no-op */
+                    },
+                };
+            },
+            onDidCreate() {
+                return {
+                    dispose() {
+                        /* no-op */
+                    },
+                };
+            },
+            onDidDelete() {
+                return {
+                    dispose() {
+                        /* no-op */
+                    },
+                };
+            },
+            dispose() {
+                /* no-op */
+            },
         };
     },
 };
@@ -245,13 +313,23 @@ export const window = {
     visibleTextEditors: [] as unknown[],
 
     createTextEditorDecorationType(_options: unknown) {
-        return { dispose() { /* no-op */ } };
+        return {
+            dispose() {
+                /* no-op */
+            },
+        };
     },
     createOutputChannel(_name: string) {
         return {
-            appendLine(_line: string) { /* no-op */ },
-            show(_preserveFocus?: boolean) { /* no-op */ },
-            dispose() { /* no-op */ },
+            appendLine(_line: string) {
+                /* no-op */
+            },
+            show(_preserveFocus?: boolean) {
+                /* no-op */
+            },
+            dispose() {
+                /* no-op */
+            },
         };
     },
     // Return a thenable, as the real API does: callers chain off the result to
@@ -266,7 +344,21 @@ export const window = {
         return Promise.resolve(undefined);
     },
     setStatusBarMessage(_message: string, _timeout?: number) {
-        return { dispose() { /* no-op */ } };
+        return {
+            dispose() {
+                /* no-op */
+            },
+        };
+    },
+};
+
+export const languages = {
+    registerHoverProvider(_selector: unknown, _provider: unknown) {
+        return {
+            dispose() {
+                /* no-op */
+            },
+        };
     },
 };
 
@@ -278,10 +370,21 @@ export const lm = {
 
 export const commands = {
     registerTextEditorCommand(_id: string, _handler: unknown) {
-        return { dispose() { /* no-op */ } };
+        return {
+            dispose() {
+                /* no-op */
+            },
+        };
     },
     registerCommand(_id: string, _handler: unknown) {
-        return { dispose() { /* no-op */ } };
+        return {
+            dispose() {
+                /* no-op */
+            },
+        };
+    },
+    async executeCommand(_id: string, ..._args: unknown[]): Promise<unknown> {
+        return undefined;
     },
 };
 

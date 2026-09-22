@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { CategoryName } from '../pdc/categories';
+import { CategoryName } from '../rules/catalog';
 
 /** Removes the "N| " line-number prefix the prompt prints before each code line. */
 export function stripLinePrefix(line: string): string {

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the **PrivAudit** extension are documented in this file.
+All notable changes to the **PrivAnnotate** extension are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -14,16 +14,48 @@ findings, accept/reject triage, and a persistent workspace manifest.
 
 ### Added - 2026-09-22
 
-* **Toggle All Findings.** `priv-audit.toggleFindings` hides or shows every finding
+* **Toggle All Findings.** `priv-annotate.toggleFindings` hides or shows every finding
   decoration across all editors without touching the manifest; the rejected-findings
-  toggle still applies once findings are shown again (`src/misc/decorations.ts`).
-* **Reset Findings Manifest.** `priv-audit.resetManifest` asks for confirmation, then
-  deletes `.privaudit/findings.json` in every workspace folder and clears all in-memory
+  toggle still applies once findings are shown again. Also available as an eye button in
+  the editor title bar (`src/commands/view.ts`, `src/ui/decorations.ts`).
+* **Reset Findings Manifest.** `priv-annotate.resetManifest` asks for confirmation, then
+  deletes the findings manifest (`.privannotate/findings.json`, and any legacy `.privaudit/findings.json`) in every workspace folder and clears all in-memory
   findings. The delete is queued behind in-flight writes so a pending decision cannot
-  resurrect the file (`ManifestStore.reset`, `src/decisions.ts`).
+  resurrect the file (`ManifestStore.reset`, `src/commands/manifest.ts`).
+* **Settings.** `privAnnotate.model.vendor`, `privAnnotate.model.family`,
+  `privAnnotate.analysis.maxConcurrentRequests`, and `privAnnotate.analysis.chunkOverlapLines`,
+  validated and clamped in `src/config.ts`. The model vendor is no longer hard-coded.
+* **Context keys** `privAnnotate.findingsVisible` and `privAnnotate.rejectedVisible`; Toggle
+  Rejected Findings is only offered while findings are visible.
+* **Prettier and EditorConfig**, with `npm run format` / `npm run format:check`.
+
+### Changed - 2026-09-22
+
+* **"Detection cards" are now "detection rules".** `PdcCard` → `PrivacyRule`,
+  `PDC_CARDS` → `PRIVACY_RULES`, `getCard` → `getRule`, and the prompt wording. Rule IDs
+  (`FP-01` … `AI-08`) are unchanged.
+* **Sources reorganized by layer:** `commands/`, `analysis/`, `rules/`, `findings/`,
+  `ui/`. The in-memory finding store and manifest load/save code moved out of the
+  decoration and command modules into `findings/store.ts` and `findings/persistence.ts`.
+* **Lazy hovers.** Hover text is built by a `HoverProvider` when a line is hovered,
+  instead of for every decoration group on every repaint; a hover lists every visible
+  finding covering that line.
+* **Fewer manifest reloads.** The file watcher ignores the extension's own writes
+  (`ManifestStore.isInSync`), so accepting a finding no longer re-reads the manifest and
+  re-locates every visible editor's findings.
+* **Cheaper prompt sizing.** The code section is counted once and only binary-searched
+  when it overflows, instead of one token count per line per request.
+* **Cheaper relocation.** Stored spans are relocated against a line index built once per
+  document instead of re-normalizing the whole file per finding.
+* Dropped the unused `PrivacyFinding.id`; `StoredFinding` is now derived from
+  `PrivacyFinding` so the two cannot drift.
+* `docs/ARCHITECTURE.md` rewritten from scratch.
 
 ### Fixed - 2026-09-22
 
+* Editing a file while Analyze runs no longer leaves findings on shifted lines: they are
+  re-anchored to the current text and the report flags the run.
+* Analyze can no longer run twice concurrently on the same file.
 * Deleting or reverting the manifest outside the extension no longer leaves stale
   decorations on screen: `loadFindingsFor` now clears a workspace file's findings when
   the manifest has no entry for it.
@@ -32,12 +64,12 @@ findings, accept/reject triage, and a persistent workspace manifest.
 
 ### Added - 2026-08-27
 
-* **Persistent findings manifest.** `.privaudit/findings.json` per workspace folder,
+* **Persistent findings manifest.** `.privannotate/findings.json` per workspace folder,
   written through a per-folder serialized `ManifestStore` so overlapping writes cannot
   lose decisions. Keys and findings are sorted on write so the file diffs cleanly when
   committed (`src/findings/manifest.ts`).
 * **Accept / reject / undo triage.** Decision commands invoked from `command:` links in
-  a finding's hover, with `priv-audit.toggleRejected` to bring hidden rejections back for
+  a finding's hover, with `priv-annotate.toggleRejected` to bring hidden rejections back for
   review (`src/decisions.ts`, `src/misc/decorations.ts`).
 * **Content fingerprints.** SHA-256 over the category plus a whitespace-normalized
   excerpt, deliberately excluding line numbers, so a decision survives the code moving
@@ -54,9 +86,9 @@ findings, accept/reject triage, and a persistent workspace manifest.
   5000-token instruction reserve (`src/chunking.ts`).
 * **Bounded concurrency.** At most three model requests in flight per run, so a large
   file does not burst the Copilot quota (`src/command.ts`).
-* **Run report.** A `PrivAudit` output channel with a previous-vs-current comparison,
+* **Run report.** A `PrivAnnotate` output channel with a previous-vs-current comparison,
   truncation and failed-category warnings, and a one-line summary notification;
-  `priv-audit.showReport` reopens it (`src/report.ts`).
+  `priv-annotate.showReport` reopens it (`src/report.ts`).
 * **Session restore.** Findings are rehydrated for visible editors on activation and on
   editor changes, and a file-system watcher reloads the manifest when it is edited
   outside the extension - a pulled commit or a hand edit (`src/extension.ts`).
@@ -90,7 +122,7 @@ findings, accept/reject triage, and a persistent workspace manifest.
 
 ### 2026-08-09
 
-* **Editor command.** `priv-audit.analyze` implemented end to end as a text-editor
+* **Editor command.** `priv-annotate.analyze` implemented end to end as a text-editor
   command with progress reporting and cancellation, replacing the chat participant
   (`src/participant.ts` removed).
 
@@ -122,11 +154,11 @@ findings, accept/reject triage, and a persistent workspace manifest.
 
 ### 2026-06-09
 
-* Initial `privAudit` chat participant and audit command.
-* Package renamed to PACT, then to PrivAudit.
+* Initial `privAnnotate` chat participant and annotate command.
+* Package renamed to PACT, then to PrivAnnotate.
 
 ### 2026-06-02
 
 * Initial extension scaffold.
 
-[Unreleased]: https://github.com/rios240/privaudit/commits/main
+[Unreleased]: https://github.com/rios240/privannotate/commits/main
