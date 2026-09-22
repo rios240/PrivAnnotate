@@ -34,7 +34,8 @@
       {
         "command": "priv-audit.toggleFindings",
         "title": "Toggle All Findings",
-        "category": "PrivAudit"
+        "category": "PrivAudit",
+        "icon": "$(eye)"
       },
       {
         "command": "priv-audit.resetManifest",
@@ -62,6 +63,10 @@
         {
           "command": "priv-audit.analyze",
           "group": "navigation"
+        },
+        {
+          "command": "priv-audit.toggleFindings",
+          "group": "navigation"
         }
       ],
       "commandPalette": [
@@ -76,8 +81,41 @@
         {
           "command": "priv-audit.clearDecision",
           "when": "false"
+        },
+        {
+          "command": "priv-audit.toggleRejected",
+          "when": "privAudit.findingsVisible"
         }
       ]
+    },
+    "configuration": {
+      "title": "PrivAudit",
+      "properties": {
+        "privAudit.model.vendor": {
+          "type": "string",
+          "default": "copilot",
+          "markdownDescription": "Language-model vendor passed to `vscode.lm.selectChatModels`. `copilot` requires GitHub Copilot Chat."
+        },
+        "privAudit.model.family": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Model family to request from the vendor (for example `gpt-4o`). Leave empty to use the vendor's first available model."
+        },
+        "privAudit.analysis.maxConcurrentRequests": {
+          "type": "integer",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 16,
+          "markdownDescription": "Detection-rule requests in flight at once during an Analyze run. Each chunk of a file costs one request per rule, so higher values finish sooner but spend quota faster."
+        },
+        "privAudit.analysis.chunkOverlapLines": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 0,
+          "maximum": 200,
+          "markdownDescription": "Lines repeated between adjacent chunks of a large file, so a practice that straddles a boundary is intact in at least one chunk."
+        }
+      }
     }
   },
   "scripts": {

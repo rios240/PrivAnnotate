@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 
 /**
- * Lines of context repeated between adjacent chunks, so a practice that spans a
+ * Default lines of context repeated between adjacent chunks (overridable with
+ * the `privAudit.analysis.chunkOverlapLines` setting), so a practice that spans a
  * boundary is fully visible in at least one chunk. Duplicate findings from the
  * overlap are collapsed by fingerprint during reconciliation.
  */
@@ -94,12 +95,13 @@ async function splitToFit(
 
 /**
  * Plans the chunks covering an entire document. Every line appears in at least
- * one chunk; adjacent chunks overlap by `CHUNK_OVERLAP_LINES`.
+ * one chunk; adjacent chunks overlap by `overlapLines`.
  */
 export async function planChunks(
     document: vscode.TextDocument,
     budget: number,
-    countTokens: CountTokens
+    countTokens: CountTokens,
+    overlapLines: number = CHUNK_OVERLAP_LINES
 ): Promise<Chunk[]> {
     if (document.lineCount === 0) {return [];}
 
@@ -116,7 +118,7 @@ export async function planChunks(
     // Grow each chunk backwards into its predecessor so a span straddling a
     // boundary is intact in the later chunk.
     const withOverlap = spans.map(([start, end], i): [number, number] =>
-        i === 0 ? [start, end] : [Math.max(0, start - CHUNK_OVERLAP_LINES), end]
+        i === 0 ? [start, end] : [Math.max(0, start - overlapLines), end]
     );
 
     return withOverlap.map(([start, end], i) => ({

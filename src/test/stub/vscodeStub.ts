@@ -88,6 +88,13 @@ export function __setWorkspaceFolder(uri: Uri, name = 'workspace'): void {
     workspaceFolders.push({ uri, name, index: 0 });
 }
 
+let configuration: Record<string, unknown> = {};
+
+/** Test helper: the values `workspace.getConfiguration().get` returns. */
+export function __setConfiguration(values: Record<string, unknown>): void {
+    configuration = { ...values };
+}
+
 /** Test helper: empties the in-memory file system. */
 export function __resetFileSystem(): void {
     files.clear();
@@ -229,6 +236,14 @@ export const workspace = {
         },
     },
 
+    getConfiguration(_section?: string) {
+        return {
+            get<T>(key: string, defaultValue?: T): T | undefined {
+                return (key in configuration ? configuration[key] : defaultValue) as T | undefined;
+            },
+        };
+    },
+
     createFileSystemWatcher(_glob: string) {
         return {
             onDidChange() { return { dispose() { /* no-op */ } }; },
@@ -293,6 +308,9 @@ export const commands = {
     },
     registerCommand(_id: string, _handler: unknown) {
         return { dispose() { /* no-op */ } };
+    },
+    async executeCommand(_id: string, ..._args: unknown[]): Promise<unknown> {
+        return undefined;
     },
 };
 

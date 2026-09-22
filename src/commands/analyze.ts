@@ -10,13 +10,7 @@ import { loadStoredFindings, persistFindings, relocateAll } from '../findings/pe
 import { setFindings } from '../findings/store';
 import { refreshEditorsFor } from '../ui/decorations';
 import { reportRun } from '../ui/report';
-
-/**
- * How many per-category requests are in flight at once. Kept small so a single
- * Analyze run doesn't burst the language-model quota - with chunking a large
- * file can queue dozens of requests.
- */
-const MAX_CONCURRENT_REQUESTS = 3;
+import { getSettings } from '../config';
 
 interface AnalysisUnit {
     rule: PrivacyRule;
@@ -73,12 +67,20 @@ async function analyze(textEditor: vscode.TextEditor): Promise<void> {
         async (progress, cancellationToken) => {
           progress.report({ message: 'Selecting model...' });
 
+          // Read once per run, so a settings change mid-run cannot mix configurations.
+          const settings = getSettings();
           const [model] = await vscode.lm.selectChatModels({
-              vendor: 'copilot'
+              vendor: settings.modelVendor,
+              ...(settings.modelFamily ? { family: settings.modelFamily } : {}),
           });
 
           if (!model) {
-              vscode.window.showErrorMessage('priv-audit: no suitable language model found.');
+              const wanted = settings.modelFamily
+                  ? `${settings.modelVendor}/${settings.modelFamily}`
+                  : settings.modelVendor;
+              vscode.window.showErrorMessage(
+                  `priv-audit: no language model found for "${wanted}". Check the privAudit.model settings.`
+              );
               return;
           }
 
@@ -96,7 +98,8 @@ async function analyze(textEditor: vscode.TextEditor): Promise<void> {
           const chunks = await planChunks(
               document,
               codeBudgetFor(model.maxInputTokens),
-              text => Promise.resolve(model.countTokens(text, cancellationToken))
+              text => Promise.resolve(model.countTokens(text, cancellationToken)),
+              settings.chunkOverlapLines
           );
 
           if (chunks.length === 0) {
@@ -169,7 +172,7 @@ async function analyze(textEditor: vscode.TextEditor): Promise<void> {
               }
           };
 
-          const results = await runWithConcurrency(units, MAX_CONCURRENT_REQUESTS, analyzeUnit);
+          const results = await runWithConcurrency(units, settings.maxConcurrentRequests, analyzeUnit);
 
           if (cancellationToken.isCancellationRequested) {return;}
 
