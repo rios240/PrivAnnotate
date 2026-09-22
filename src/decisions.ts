@@ -3,13 +3,16 @@ import { FindingStatus, PrivacyFinding } from './pdc/schema';
 import { locate, manifestStore, StoredFinding, toStoredFinding } from './findings/manifest';
 import { relocate, TextSource } from './findings/reconcile';
 import {
+    clearAllFindings,
     getFinding,
+    isShowingFindings,
     isShowingRejected,
     nextFindingId,
     refreshEditorsFor,
+    repaintVisibleEditors,
     setFindings,
+    setShowFindings,
     setShowRejected,
-    updateDecorations,
 } from './misc/decorations';
 
 /** Argument shape carried by the hover's `command:` links. */
@@ -57,7 +60,12 @@ export async function loadFindingsFor(document: vscode.TextDocument): Promise<bo
 
     const manifest = await manifestStore.load(location.folder);
     const entry = manifest.files[location.path];
-    if (!entry) return false;
+    if (!entry) {
+        // The manifest is the source of truth for workspace files: if it no
+        // longer has an entry (reset, deleted, reverted), drop what is painted.
+        setFindings(document.uri, []);
+        return false;
+    }
 
     setFindings(document.uri, hydrate(document, entry.findings));
     return true;
@@ -145,13 +153,68 @@ export function registerDecisionCommands(context: vscode.ExtensionContext) {
         ),
         vscode.commands.registerCommand('priv-audit.toggleRejected', () => {
             setShowRejected(!isShowingRejected());
-            vscode.window.visibleTextEditors.forEach(updateDecorations);
+            repaintVisibleEditors();
             vscode.window.setStatusBarMessage(
                 isShowingRejected()
                     ? 'PrivAudit: showing rejected findings'
                     : 'PrivAudit: hiding rejected findings',
                 3000
             );
-        })
+        }),
+        vscode.commands.registerCommand('priv-audit.toggleFindings', () => {
+            setShowFindings(!isShowingFindings());
+            repaintVisibleEditors();
+            vscode.window.setStatusBarMessage(
+                isShowingFindings()
+                    ? 'PrivAudit: showing all findings'
+                    : 'PrivAudit: hiding all findings',
+                3000
+            );
+        }),
+        vscode.commands.registerCommand('priv-audit.resetManifest', resetManifest)
     );
+}
+
+/**
+ * Wipes every finding and decision in the workspace: deletes each folder's
+ * manifest and clears the in-memory store. Irreversible short of version
+ * control, so it always asks first.
+ */
+export async function resetManifest(): Promise<void> {
+    const folders = vscode.workspace.workspaceFolders ?? [];
+    if (folders.length === 0) {
+        vscode.window.showInformationMessage('priv-audit: open a workspace folder to reset its findings manifest.');
+        return;
+    }
+
+    const confirm = 'Reset';
+    const choice = await vscode.window.showWarningMessage(
+        'Delete all PrivAudit findings and accept/reject decisions in this workspace? This cannot be undone.',
+        { modal: true },
+        confirm
+    );
+    if (choice !== confirm) return;
+
+    // Settle every folder rather than stopping at the first failure, so one
+    // unwritable folder does not leave the others half-reset.
+    const results = await Promise.allSettled(folders.map(folder => manifestStore.reset(folder.uri)));
+    const failed = folders.filter((_, i) => results[i].status === 'rejected');
+
+    clearAllFindings();
+    repaintVisibleEditors();
+
+    if (failed.length > 0) {
+        results.forEach(result => {
+            if (result.status === 'rejected') {
+                console.error('priv-audit: could not reset the findings manifest:', result.reason);
+            }
+        });
+        vscode.window.showErrorMessage(
+            `priv-audit: could not reset the manifest in ${failed.map(f => f.name).join(', ')}. ` +
+            'See console for details.'
+        );
+        return;
+    }
+
+    vscode.window.showInformationMessage('priv-audit: findings manifest reset; all findings cleared.');
 }

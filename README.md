@@ -83,6 +83,8 @@ with the others listed in its `crossReferences` field.
 | `priv-audit.analyze` | Analyze Privacy Practices | Command palette, and the shield icon in the editor title bar |
 | `priv-audit.showReport` | Show Analysis Report | Command palette - opens the PrivAudit output channel |
 | `priv-audit.toggleRejected` | Toggle Rejected Findings | Command palette - reveals rejected findings so a mistaken rejection can be undone |
+| `priv-audit.toggleFindings` | Toggle All Findings | Command palette - hides or shows every finding decoration in all editors; the manifest is untouched |
+| `priv-audit.resetManifest` | Reset Findings Manifest | Command palette - after a confirmation, deletes `.privaudit/findings.json` in every workspace folder and clears all annotations |
 | `priv-audit.acceptFinding` | Accept Finding | Hover link only |
 | `priv-audit.rejectFinding` | Reject Finding | Hover link only |
 | `priv-audit.clearDecision` | Clear Finding Decision | Hover link only |
@@ -100,6 +102,9 @@ Findings decorate whole lines, with overlapping findings merged into one decorat
   `(low confidence)`.
 * **Blue** - accepted (`✔`).
 * **Grey** - rejected (`✖`), painted only while *Toggle Rejected Findings* is on.
+
+*Toggle All Findings* hides every decoration at once and brings them back as they were -
+useful for reading or presenting code without the annotations.
 
 Hovering a decoration shows, per finding: card ID and display name, confidence, the
 evidence sentence, the model's reasoning steps, cross-referenced categories, when the
@@ -149,6 +154,9 @@ Notes on living with the file:
   unrecognized `version` makes the extension start from empty rather than misread it.
 * **Nothing is deleted.** A finding a later run does not re-observe is kept and stamped
   `resolvedAt`; it stops decorating the editor but stays in the record.
+* **Starting over.** *Reset Findings Manifest* is the one exception: it deletes the manifest
+  in every workspace folder, wiping all findings *and* accept/reject decisions. It asks
+  for confirmation first and cannot be undone other than through version control.
 
 ## Extension settings
 

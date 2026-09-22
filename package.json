@@ -32,6 +32,16 @@
         "category": "PrivAudit"
       },
       {
+        "command": "priv-audit.toggleFindings",
+        "title": "Toggle All Findings",
+        "category": "PrivAudit"
+      },
+      {
+        "command": "priv-audit.resetManifest",
+        "title": "Reset Findings Manifest",
+        "category": "PrivAudit"
+      },
+      {
         "command": "priv-audit.acceptFinding",
         "title": "Accept Finding",
         "category": "PrivAudit"
@@ -48,26 +58,26 @@
       }
     ],
     "menus": {
-        "editor/title": [
-            {
-                "command": "priv-audit.analyze",
-                "group": "navigation"
-            }
-        ],
-        "commandPalette": [
-            {
-                "command": "priv-audit.acceptFinding",
-                "when": "false"
-            },
-            {
-                "command": "priv-audit.rejectFinding",
-                "when": "false"
-            },
-            {
-                "command": "priv-audit.clearDecision",
-                "when": "false"
-            }
-        ]
+      "editor/title": [
+        {
+          "command": "priv-audit.analyze",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "priv-audit.acceptFinding",
+          "when": "false"
+        },
+        {
+          "command": "priv-audit.rejectFinding",
+          "when": "false"
+        },
+        {
+          "command": "priv-audit.clearDecision",
+          "when": "false"
+        }
+      ]
     }
   },
   "scripts": {
@@ -91,7 +101,6 @@
     "typescript-eslint": "^8.56.1"
   },
   "dependencies": {
-    "@types/jest": "^30.0.0",
     "@vscode/prompt-tsx": "^0.4.0-alpha.8"
   }
 }

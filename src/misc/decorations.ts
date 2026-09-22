@@ -49,6 +49,21 @@ export function setShowRejected(value: boolean): void {
     showRejected = value;
 }
 
+/**
+ * Master switch for every finding decoration. Hiding is a view preference only:
+ * findings stay in the store and the manifest, and showing them again restores
+ * exactly what was painted before (rejected ones still follow `showRejected`).
+ */
+let showFindings = true;
+
+export function isShowingFindings(): boolean {
+    return showFindings;
+}
+
+export function setShowFindings(value: boolean): void {
+    showFindings = value;
+}
+
 export function disposeDecorations(): void {
     if (!decorationSet) return;
     Object.values(decorationSet).forEach(type => type.dispose());
@@ -75,6 +90,22 @@ export function getFinding(uri: vscode.Uri, fingerprint: string): PrivacyFinding
 
 export function clearFindings(document: vscode.TextDocument): void {
     findingsByDocument.delete(document.uri.toString());
+}
+
+/** Empties the store for every document, e.g. after the manifest is reset. */
+export function clearAllFindings(): void {
+    findingsByDocument.clear();
+}
+
+/**
+ * The findings of one status that should be painted, given the current view
+ * toggles. Resolved findings are never painted; they live on only in the
+ * manifest's audit trail.
+ */
+export function visibleFindings(findings: PrivacyFinding[], status: FindingStatus): PrivacyFinding[] {
+    if (!showFindings) return [];
+    if (status === 'rejected' && !showRejected) return [];
+    return findings.filter(f => f.status === status && !f.resolvedAt);
 }
 
 /**
@@ -195,18 +226,15 @@ function badge(group: PrivacyFinding[], status: FindingStatus): string {
  * given decoration type, so recomputing from scratch is correct.
  *
  * Rejected findings are deliberately not decorated: the user has said they are
- * not pertinent, and they survive only in the manifest.
+ * not pertinent, and they survive only in the manifest. A hidden status still
+ * gets an empty `setDecorations` call, which is what clears it from the editor.
  */
 export function updateDecorations(textEditor: vscode.TextEditor): void {
     const findings = getFindings(textEditor.document);
     const decorations = getDecorations();
 
     for (const status of ['undecided', 'accepted', 'rejected'] as const) {
-        const visible =
-            status === 'rejected' && !showRejected
-                ? []
-                : findings.filter(f => f.status === status && !f.resolvedAt);
-        const groups = mergeOverlappingFindings(visible);
+        const groups = mergeOverlappingFindings(visibleFindings(findings, status));
 
         const options: vscode.DecorationOptions[] = groups.map(group => {
             const startLine = Math.max(0, Math.min(...group.map(f => f.lineRange.start)) - 1);
@@ -237,6 +265,11 @@ export function updateDecorations(textEditor: vscode.TextEditor): void {
 
         textEditor.setDecorations(decorations[status], options);
     }
+}
+
+/** Repaints every visible editor, e.g. after a view toggle or a reset. */
+export function repaintVisibleEditors(): void {
+    vscode.window.visibleTextEditors.forEach(updateDecorations);
 }
 
 /** Repaints every editor currently showing `uri`. */

@@ -1,6 +1,11 @@
 import { createHash } from 'crypto';
 import { CategoryName } from '../pdc/categories';
 
+/** Removes the "N| " line-number prefix the prompt prints before each code line. */
+export function stripLinePrefix(line: string): string {
+    return line.replace(/^\s*\d+\s*\|\s?/, '');
+}
+
 /**
  * Strips the "N| " prefix the prompt adds, trims each line, and collapses
  * internal whitespace runs. Reindentation, retabbing, and line moves therefore
@@ -9,7 +14,7 @@ import { CategoryName } from '../pdc/categories';
 export function normalizeExcerpt(excerpt: string): string {
     return excerpt
         .split(/\r?\n/)
-        .map(line => line.replace(/^\s*\d+\s*\|\s?/, '').replace(/\s+/g, ' ').trim())
+        .map(line => stripLinePrefix(line).replace(/\s+/g, ' ').trim())
         .filter(line => line.length > 0)
         .join('\n');
 }
