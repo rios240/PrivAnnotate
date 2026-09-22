@@ -86,7 +86,11 @@ suite('planChunks', () => {
             assert.ok(chunks.length > 1, 'precondition: the file needs several chunks');
             for (let i = 1; i < chunks.length; i++) {
                 const overlap = chunks[i - 1].range.end.line - chunks[i].range.start.line + 1;
-                assert.strictEqual(overlap, overlapLines, `chunks ${i - 1} and ${i} with overlap ${overlapLines}`);
+                assert.strictEqual(
+                    overlap,
+                    overlapLines,
+                    `chunks ${i - 1} and ${i} with overlap ${overlapLines}`
+                );
             }
         }
     });

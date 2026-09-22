@@ -128,7 +128,10 @@ suite('decoration visibility', () => {
     });
 
     test('filters by the requested status only', () => {
-        assert.deepStrictEqual(visibleFindings(all, 'accepted').map(f => f.excerpt), ['b = req.b']);
+        assert.deepStrictEqual(
+            visibleFindings(all, 'accepted').map(f => f.excerpt),
+            ['b = req.b']
+        );
     });
 });
 
@@ -143,8 +146,14 @@ suite('hover', () => {
     });
 
     test('findingsAtLine returns every finding covering the line, in reading order', () => {
-        assert.deepStrictEqual(findingsAtLine([b, c, a], 4).map(f => f.excerpt), ['a = req.a', 'b = req.b']);
-        assert.deepStrictEqual(findingsAtLine([a, b, c], 9).map(f => f.excerpt), ['c = req.c']);
+        assert.deepStrictEqual(
+            findingsAtLine([b, c, a], 4).map(f => f.excerpt),
+            ['a = req.a', 'b = req.b']
+        );
+        assert.deepStrictEqual(
+            findingsAtLine([a, b, c], 9).map(f => f.excerpt),
+            ['c = req.c']
+        );
         assert.deepStrictEqual(findingsAtLine([a, b, c], 7), []);
     });
 

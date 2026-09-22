@@ -40,9 +40,7 @@ export function registerViewCommands(context: vscode.ExtensionContext) {
             syncViewContext();
             repaintVisibleEditors();
             vscode.window.setStatusBarMessage(
-                isShowingFindings()
-                    ? 'PrivAudit: showing all findings'
-                    : 'PrivAudit: hiding all findings',
+                isShowingFindings() ? 'PrivAudit: showing all findings' : 'PrivAudit: hiding all findings',
                 3000
             );
         })

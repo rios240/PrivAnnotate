@@ -63,7 +63,9 @@ export function setShowFindings(value: boolean): void {
 }
 
 export function disposeDecorations(): void {
-    if (!decorationSet) {return;}
+    if (!decorationSet) {
+        return;
+    }
     Object.values(decorationSet).forEach(type => type.dispose());
     decorationSet = undefined;
 }
@@ -74,8 +76,12 @@ export function disposeDecorations(): void {
  * manifest's audit trail.
  */
 export function visibleFindings(findings: PrivacyFinding[], status: FindingStatus): PrivacyFinding[] {
-    if (!showFindings) {return [];}
-    if (status === 'rejected' && !showRejected) {return [];}
+    if (!showFindings) {
+        return [];
+    }
+    if (status === 'rejected' && !showRejected) {
+        return [];
+    }
     return findings.filter(f => f.status === status && !f.resolvedAt);
 }
 
@@ -84,7 +90,9 @@ export function visibleFindings(findings: PrivacyFinding[], status: FindingStatu
  * exactly what is painted.
  */
 export function allVisibleFindings(findings: PrivacyFinding[]): PrivacyFinding[] {
-    return (['undecided', 'accepted', 'rejected'] as const).flatMap(status => visibleFindings(findings, status));
+    return (['undecided', 'accepted', 'rejected'] as const).flatMap(status =>
+        visibleFindings(findings, status)
+    );
 }
 
 /**
@@ -94,7 +102,9 @@ export function allVisibleFindings(findings: PrivacyFinding[]): PrivacyFinding[]
  * interval-merge).
  */
 function mergeOverlappingFindings(findings: PrivacyFinding[]): PrivacyFinding[][] {
-    if (findings.length === 0) {return [];}
+    if (findings.length === 0) {
+        return [];
+    }
 
     const sorted = [...findings].sort(
         (a, b) => a.lineRange.start - b.lineRange.start || a.lineRange.end - b.lineRange.end

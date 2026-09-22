@@ -37,41 +37,43 @@ export class PreludeElement extends PromptElement<IPreludeProps, void> {
         const rule = this.props.rule;
         return (
             <>
-                You are a privacy engineer annotating source code with the data practices it
-                implements. You work from the Privacy Practice Detection Rules: eight
-                code-relevant categories adapted from the OPP-115 privacy-policy taxonomy, plus
-                one custom category covering AI/ML usage. Downstream, your annotations are
-                compared against an organization's written privacy policy to surface
-                inconsistencies, so precision matters more than volume.
+                You are a privacy engineer annotating source code with the data practices it implements. You
+                work from the Privacy Practice Detection Rules: eight code-relevant categories adapted from
+                the OPP-115 privacy-policy taxonomy, plus one custom category covering AI/ML usage.
+                Downstream, your annotations are compared against an organization's written privacy policy to
+                surface inconsistencies, so precision matters more than volume.
                 <br />
                 <br />
-                SCOPE OF THIS REQUEST: you are given exactly one rule - {rule.id} (
-                {rule.displayName}) - and you report matches for that category only. Other
-                categories are being handled by separate requests. If a span also matches a
-                different category, note that in the finding's "crossReferences" field; do not
-                emit a finding for it.
+                SCOPE OF THIS REQUEST: you are given exactly one rule - {rule.id} ({rule.displayName}) - and
+                you report matches for that category only. Other categories are being handled by separate
+                requests. If a span also matches a different category, note that in the finding's
+                "crossReferences" field; do not emit a finding for it.
                 <br />
                 <br />
-                GROUNDING RULES:<br />
-                &nbsp;&nbsp;- Annotate only code that actually appears between the{' '}
-                {CODE_INPUT_START} and {CODE_INPUT_END} markers. Never invent, complete, or
-                assume code that is not shown.<br />
-                &nbsp;&nbsp;- Each line of the input is prefixed with its exact line number in
-                the format "N| code". Use those numbers verbatim. Do not recount, offset, or
-                estimate line numbers.<br />
-                &nbsp;&nbsp;- The "excerpt" of a finding must be copied verbatim from the input
-                with the "N| " prefix stripped. Do not paraphrase, reformat, or reindent it.<br />
-                &nbsp;&nbsp;- Report each distinct matching span as its own finding. Do not merge
-                unrelated spans into one finding, and do not emit duplicate findings for the same
-                span.<br />
-                &nbsp;&nbsp;- Imports, bare variable declarations, type definitions, comments, and
-                static configuration constants are not by themselves data practices. An operation
-                must actually occur.<br />
-                &nbsp;&nbsp;- The code shown may be a fragment of a larger file, so context may be
-                missing. When a match depends on context you cannot see, still report it, but
-                lower the confidence rather than guessing.<br />
-                &nbsp;&nbsp;- Finding nothing is a correct and expected outcome. Most code spans
-                do not match any given category. Do not stretch to produce a match.
+                GROUNDING RULES:
+                <br />
+                &nbsp;&nbsp;- Annotate only code that actually appears between the {CODE_INPUT_START} and{' '}
+                {CODE_INPUT_END} markers. Never invent, complete, or assume code that is not shown.
+                <br />
+                &nbsp;&nbsp;- Each line of the input is prefixed with its exact line number in the format "N|
+                code". Use those numbers verbatim. Do not recount, offset, or estimate line numbers.
+                <br />
+                &nbsp;&nbsp;- The "excerpt" of a finding must be copied verbatim from the input with the "N| "
+                prefix stripped. Do not paraphrase, reformat, or reindent it.
+                <br />
+                &nbsp;&nbsp;- Report each distinct matching span as its own finding. Do not merge unrelated
+                spans into one finding, and do not emit duplicate findings for the same span.
+                <br />
+                &nbsp;&nbsp;- Imports, bare variable declarations, type definitions, comments, and static
+                configuration constants are not by themselves data practices. An operation must actually
+                occur.
+                <br />
+                &nbsp;&nbsp;- The code shown may be a fragment of a larger file, so context may be missing.
+                When a match depends on context you cannot see, still report it, but lower the confidence
+                rather than guessing.
+                <br />
+                &nbsp;&nbsp;- Finding nothing is a correct and expected outcome. Most code spans do not match
+                any given category. Do not stretch to produce a match.
             </>
         );
     }
@@ -92,15 +94,24 @@ export class RuleExampleElement extends PromptElement<IRuleExampleProps, void> {
         return (
             <>
                 <br />
-                Example {index} - {example.label}<br />
-                ```{example.language}<br />
-                {example.code}<br />
-                ```<br />
-                Reasoning:<br />
+                Example {index} - {example.label}
+                <br />
+                ```{example.language}
+                <br />
+                {example.code}
+                <br />
+                ```
+                <br />
+                Reasoning:
+                <br />
                 {example.reasoning.map((step, i) => (
-                    <>&nbsp;&nbsp;{i + 1}. {step}<br /></>
+                    <>
+                        &nbsp;&nbsp;{i + 1}. {step}
+                        <br />
+                    </>
                 ))}
-                Conclusion: {example.conclusion}<br />
+                Conclusion: {example.conclusion}
+                <br />
             </>
         );
     }
@@ -115,25 +126,38 @@ export class RuleElement extends PromptElement<IRuleProps, void> {
         const rule = this.props.rule;
         return (
             <>
-                '''<br />
-                IDENTIFIER: {rule.id}<br />
-                CATEGORY: {rule.category}<br />
-                CATEGORY NAME: {rule.displayName}<br />
+                '''
                 <br />
-                BASE DESCRIPTION:<br />
-                {rule.baseDescription}<br />
+                IDENTIFIER: {rule.id}
                 <br />
-                HOW TO REASON ABOUT THIS CATEGORY:<br />
-                {rule.chainOfThought}<br />
+                CATEGORY: {rule.category}
                 <br />
-                ELICITATION QUESTIONS (guidance, not an exhaustive test - a span may match this
-                category without answering any of these):<br />
+                CATEGORY NAME: {rule.displayName}
+                <br />
+                <br />
+                BASE DESCRIPTION:
+                <br />
+                {rule.baseDescription}
+                <br />
+                <br />
+                HOW TO REASON ABOUT THIS CATEGORY:
+                <br />
+                {rule.chainOfThought}
+                <br />
+                <br />
+                ELICITATION QUESTIONS (guidance, not an exhaustive test - a span may match this category
+                without answering any of these):
+                <br />
                 {rule.elicitationQuestions.map(q => (
-                    <>&nbsp;&nbsp;- {q}<br /></>
+                    <>
+                        &nbsp;&nbsp;- {q}
+                        <br />
+                    </>
                 ))}
                 <br />
-                WORKED EXAMPLES (the negative examples define the boundary as much as the
-                positive ones - study both):<br />
+                WORKED EXAMPLES (the negative examples define the boundary as much as the positive ones -
+                study both):
+                <br />
                 {rule.examples.map((example, i) => (
                     <RuleExampleElement example={example} index={i + 1} />
                 ))}
@@ -141,8 +165,9 @@ export class RuleElement extends PromptElement<IRuleProps, void> {
                     <>
                         <br />
                         RELATED CATEGORIES: spans matching {rule.id} frequently also match{' '}
-                        {rule.crossReferences.join(', ')}. List those in "crossReferences" rather
-                        than emitting findings for them.<br />
+                        {rule.crossReferences.join(', ')}. List those in "crossReferences" rather than
+                        emitting findings for them.
+                        <br />
                     </>
                 ) : (
                     <></>
@@ -166,20 +191,23 @@ export class OutputFormatElement extends PromptElement<IOutputFormatProps, void>
         const rule = this.props.rule;
         return (
             <>
-                RESPONSE FORMAT<br />
+                RESPONSE FORMAT
                 <br />
-                Respond with a single JSON array and nothing else. No prose before or after, no
-                explanation, no markdown code fence, no backticks. Your entire response must
-                parse as JSON.<br />
                 <br />
-                The array must conform to this schema:<br />
-                {JSON.stringify(FINDING_JSON_SCHEMA, null, 2)}<br />
+                Respond with a single JSON array and nothing else. No prose before or after, no explanation,
+                no markdown code fence, no backticks. Your entire response must parse as JSON.
                 <br />
-                Every element's "category" must be exactly "{rule.category}" - the category of
-                the one rule you were given.<br />
                 <br />
-                If no span in the supplied code matches {rule.id}, respond with exactly:{' '}
-                {'[]'}
+                The array must conform to this schema:
+                <br />
+                {JSON.stringify(FINDING_JSON_SCHEMA, null, 2)}
+                <br />
+                <br />
+                Every element's "category" must be exactly "{rule.category}" - the category of the one rule
+                you were given.
+                <br />
+                <br />
+                If no span in the supplied code matches {rule.id}, respond with exactly: {'[]'}
             </>
         );
     }
@@ -209,11 +237,9 @@ interface ICodeTaskState {
 export class CodeTaskElement extends PromptElement<ICodeTaskProps, ICodeTaskState> {
     async prepare(sizing: PromptSizing): Promise<ICodeTaskState> {
         const doc = this.props.document;
-        const range = this.props.range ?? new vscode.Range(
-            0, 0,
-            doc.lineCount - 1,
-            doc.lineAt(doc.lineCount - 1).text.length
-        );
+        const range =
+            this.props.range ??
+            new vscode.Range(0, 0, doc.lineCount - 1, doc.lineAt(doc.lineCount - 1).text.length);
 
         // VS Code positions are 0-based; show 1-based line numbers to the LLM
         // so "lineRange" in its JSON response maps directly onto real editor lines.
@@ -221,8 +247,8 @@ export class CodeTaskElement extends PromptElement<ICodeTaskProps, ICodeTaskStat
         const lines = doc.getText(range).split(/\r?\n/);
         const maxLineNo = startLine + lines.length - 1;
         const width = String(maxLineNo).length;
-        const numberedLines = lines.map((line, i) =>
-            `${String(startLine + i).padStart(width, ' ')}| ${line}`
+        const numberedLines = lines.map(
+            (line, i) => `${String(startLine + i).padStart(width, ' ')}| ${line}`
         );
 
         const header = `${CODE_INPUT_START}\n`;
@@ -256,9 +282,17 @@ export class CodeTaskElement extends PromptElement<ICodeTaskProps, ICodeTaskStat
         const { rule, document, filePath } = this.props;
         return (
             <>
-                TASK: analyze the {document.languageId} code below against rule {rule.id} (
-                {rule.displayName}) only, and report every span that matches it.<br />
-                {filePath ? <>FILE: {filePath}<br /></> : <></>}
+                TASK: analyze the {document.languageId} code below against rule {rule.id} ({rule.displayName})
+                only, and report every span that matches it.
+                <br />
+                {filePath ? (
+                    <>
+                        FILE: {filePath}
+                        <br />
+                    </>
+                ) : (
+                    <></>
+                )}
                 LINES SHOWN: {state.startLine} to {state.endLine}
                 {state.truncated ? ' (the remainder of the selection did not fit and is not shown)' : ''}
                 <br />
@@ -336,7 +370,8 @@ export class CategoryAnalysisPrompt extends PromptElement<ICategoryAnalysisPromp
                     <OutputFormatElement rule={rule} />
                 </AssistantMessage>
                 <AssistantMessage priority={85}>
-                    DETECTION RULE FOR THIS REQUEST:<br />
+                    DETECTION RULE FOR THIS REQUEST:
+                    <br />
                     <RuleElement rule={rule} />
                 </AssistantMessage>
                 <UserMessage priority={95} flexGrow={1}>

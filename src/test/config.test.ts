@@ -14,15 +14,24 @@ suite('settings', () => {
     });
 
     test('clamps numeric settings into range and rounds them', () => {
-        const low = normalizeSettings({ 'analysis.maxConcurrentRequests': 0, 'analysis.chunkOverlapLines': -5 });
+        const low = normalizeSettings({
+            'analysis.maxConcurrentRequests': 0,
+            'analysis.chunkOverlapLines': -5,
+        });
         assert.strictEqual(low.maxConcurrentRequests, 1);
         assert.strictEqual(low.chunkOverlapLines, 0);
 
-        const high = normalizeSettings({ 'analysis.maxConcurrentRequests': 999, 'analysis.chunkOverlapLines': 1e6 });
+        const high = normalizeSettings({
+            'analysis.maxConcurrentRequests': 999,
+            'analysis.chunkOverlapLines': 1e6,
+        });
         assert.strictEqual(high.maxConcurrentRequests, 16);
         assert.strictEqual(high.chunkOverlapLines, 200);
 
-        assert.strictEqual(normalizeSettings({ 'analysis.maxConcurrentRequests': 4.6 }).maxConcurrentRequests, 5);
+        assert.strictEqual(
+            normalizeSettings({ 'analysis.maxConcurrentRequests': 4.6 }).maxConcurrentRequests,
+            5
+        );
     });
 
     test('falls back to defaults for values of the wrong type', () => {

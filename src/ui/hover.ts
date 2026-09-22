@@ -14,7 +14,9 @@ export function registerHoverProvider(context: vscode.ExtensionContext): void {
         vscode.languages.registerHoverProvider('*', {
             provideHover(document, position) {
                 const hits = findingsAtLine(allVisibleFindings(getFindings(document.uri)), position.line + 1);
-                if (hits.length === 0) {return undefined;}
+                if (hits.length === 0) {
+                    return undefined;
+                }
 
                 const start = Math.min(...hits.map(f => f.lineRange.start)) - 1;
                 const end = Math.min(Math.max(...hits.map(f => f.lineRange.end)), document.lineCount) - 1;
@@ -53,7 +55,9 @@ function decisionLinks(uri: vscode.Uri, finding: PrivacyFinding): string {
 }
 
 function formatDate(iso: string | undefined): string | undefined {
-    if (!iso) {return undefined;}
+    if (!iso) {
+        return undefined;
+    }
     const date = new Date(iso);
     return Number.isNaN(date.getTime()) ? undefined : date.toLocaleDateString();
 }
@@ -64,7 +68,9 @@ export function buildHoverMessage(uri: vscode.Uri, group: PrivacyFinding[]): vsc
     md.isTrusted = true;
 
     group.forEach((finding, idx) => {
-        if (idx > 0) {md.appendMarkdown('\n\n---\n\n');}
+        if (idx > 0) {
+            md.appendMarkdown('\n\n---\n\n');
+        }
 
         const rule = getRule(finding.category);
         md.appendMarkdown(`**[${rule.id}] ${rule.displayName}** · confidence: ${finding.confidence}\n\n`);
@@ -86,7 +92,9 @@ export function buildHoverMessage(uri: vscode.Uri, group: PrivacyFinding[]): vsc
         }
 
         const firstSeen = formatDate(finding.firstSeen);
-        if (firstSeen) {md.appendMarkdown(`*First seen:* ${firstSeen}\n\n`);}
+        if (firstSeen) {
+            md.appendMarkdown(`*First seen:* ${firstSeen}\n\n`);
+        }
         if (finding.stale) {
             md.appendMarkdown(
                 '*This span could not be located in the current text - the code may have changed since it was recorded.*\n\n'

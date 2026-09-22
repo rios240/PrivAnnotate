@@ -51,25 +51,53 @@ export function toStoredFinding(finding: PrivacyFinding): StoredFinding {
  * than trust it, and drop only the entries that are actually malformed.
  */
 export function isStoredFinding(value: unknown): value is StoredFinding {
-    if (typeof value !== 'object' || value === null) {return false;}
+    if (typeof value !== 'object' || value === null) {
+        return false;
+    }
     const v = value as Record<string, unknown>;
 
-    if (typeof v.fingerprint !== 'string' || v.fingerprint.length === 0) {return false;}
-    if (!isCategoryName(v.category)) {return false;}
-    if (typeof v.excerpt !== 'string') {return false;}
-    if (typeof v.evidence !== 'string') {return false;}
-    if (!isConfidence(v.confidence)) {return false;}
-    if (!isFindingStatus(v.status)) {return false;}
-    if (typeof v.firstSeen !== 'string' || typeof v.lastSeen !== 'string') {return false;}
+    if (typeof v.fingerprint !== 'string' || v.fingerprint.length === 0) {
+        return false;
+    }
+    if (!isCategoryName(v.category)) {
+        return false;
+    }
+    if (typeof v.excerpt !== 'string') {
+        return false;
+    }
+    if (typeof v.evidence !== 'string') {
+        return false;
+    }
+    if (!isConfidence(v.confidence)) {
+        return false;
+    }
+    if (!isFindingStatus(v.status)) {
+        return false;
+    }
+    if (typeof v.firstSeen !== 'string' || typeof v.lastSeen !== 'string') {
+        return false;
+    }
 
-    if (typeof v.lineRange !== 'object' || v.lineRange === null) {return false;}
+    if (typeof v.lineRange !== 'object' || v.lineRange === null) {
+        return false;
+    }
     const range = v.lineRange as Record<string, unknown>;
-    if (typeof range.start !== 'number' || typeof range.end !== 'number') {return false;}
+    if (typeof range.start !== 'number' || typeof range.end !== 'number') {
+        return false;
+    }
 
-    if (v.decidedAt !== undefined && typeof v.decidedAt !== 'string') {return false;}
-    if (v.resolvedAt !== undefined && typeof v.resolvedAt !== 'string') {return false;}
-    if (v.reasoning !== undefined && !isStringArray(v.reasoning)) {return false;}
-    if (v.crossReferences !== undefined && !isStringArray(v.crossReferences)) {return false;}
+    if (v.decidedAt !== undefined && typeof v.decidedAt !== 'string') {
+        return false;
+    }
+    if (v.resolvedAt !== undefined && typeof v.resolvedAt !== 'string') {
+        return false;
+    }
+    if (v.reasoning !== undefined && !isStringArray(v.reasoning)) {
+        return false;
+    }
+    if (v.crossReferences !== undefined && !isStringArray(v.crossReferences)) {
+        return false;
+    }
 
     return true;
 }
@@ -90,15 +118,14 @@ export function parseManifest(raw: string): Manifest {
 
     const files: Record<string, ManifestFileEntry> = {};
     for (const [path, value] of Object.entries(root.files as Record<string, unknown>)) {
-        if (typeof value !== 'object' || value === null) {continue;}
+        if (typeof value !== 'object' || value === null) {
+            continue;
+        }
         const entry = value as Record<string, unknown>;
-        const findings = Array.isArray(entry.findings)
-            ? entry.findings.filter(isStoredFinding)
-            : [];
+        const findings = Array.isArray(entry.findings) ? entry.findings.filter(isStoredFinding) : [];
 
         files[path] = {
-            lastAnalyzedAt:
-                typeof entry.lastAnalyzedAt === 'string' ? entry.lastAnalyzedAt : '',
+            lastAnalyzedAt: typeof entry.lastAnalyzedAt === 'string' ? entry.lastAnalyzedAt : '',
             findings,
         };
     }
@@ -133,10 +160,14 @@ export interface ManifestLocation {
 }
 
 export function locate(document: vscode.TextDocument): ManifestLocation | undefined {
-    if (document.isUntitled) {return undefined;}
+    if (document.isUntitled) {
+        return undefined;
+    }
 
     const folder = vscode.workspace.getWorkspaceFolder(document.uri);
-    if (!folder) {return undefined;}
+    if (!folder) {
+        return undefined;
+    }
 
     const relative = vscode.workspace.asRelativePath(document.uri, false).replace(/\\/g, '/');
     return { folder: folder.uri, path: relative };
@@ -166,7 +197,9 @@ export class ManifestStore {
     async load(folder: vscode.Uri): Promise<Manifest> {
         const key = folder.toString();
         const cached = this.cache.get(key);
-        if (cached) {return cached;}
+        if (cached) {
+            return cached;
+        }
 
         let manifest = emptyManifest();
         try {
@@ -201,7 +234,9 @@ export class ManifestStore {
             try {
                 await vscode.workspace.fs.delete(manifestUri(folder));
             } catch (error) {
-                if (!isFileNotFound(error)) {throw error;}
+                if (!isFileNotFound(error)) {
+                    throw error;
+                }
             }
             this.cache.set(folder.toString(), emptyManifest());
             this.lastWritten.set(folder.toString(), null);
@@ -215,7 +250,9 @@ export class ManifestStore {
      */
     async isInSync(folder: vscode.Uri): Promise<boolean> {
         const key = folder.toString();
-        if (!this.lastWritten.has(key)) {return false;}
+        if (!this.lastWritten.has(key)) {
+            return false;
+        }
         const expected = this.lastWritten.get(key);
 
         try {
@@ -232,7 +269,10 @@ export class ManifestStore {
         const run = (this.writeQueues.get(key) ?? Promise.resolve()).then(task);
 
         // Keep the chain alive even if one link rejects, so later writes still run.
-        this.writeQueues.set(key, run.catch(() => undefined));
+        this.writeQueues.set(
+            key,
+            run.catch(() => undefined)
+        );
         return run;
     }
 

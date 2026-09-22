@@ -15,10 +15,7 @@ export interface ParseContext {
     filePath?: string;
 }
 
-export function buildParseContext(
-    document: vscode.TextDocument,
-    range: vscode.Range
-): ParseContext {
+export function buildParseContext(document: vscode.TextDocument, range: vscode.Range): ParseContext {
     return {
         lineText: line =>
             line >= 1 && line <= document.lineCount ? document.lineAt(line - 1).text : undefined,
@@ -42,7 +39,9 @@ export function extractJsonArray(text: string): string | undefined {
 
     const start = cleaned.indexOf('[');
     const end = cleaned.lastIndexOf(']');
-    if (start === -1 || end === -1 || end < start) {return undefined;}
+    if (start === -1 || end === -1 || end < start) {
+        return undefined;
+    }
 
     return cleaned.slice(start, end + 1);
 }
@@ -62,11 +61,15 @@ function isExcerptGrounded(excerpt: string, start: number, end: number, ctx: Par
         .map(line => normalize(stripLinePrefix(line)))
         .find(line => line.length > 0);
 
-    if (!firstLine) {return false;}
+    if (!firstLine) {
+        return false;
+    }
 
     for (let line = start; line <= end; line++) {
         const source = ctx.lineText(line);
-        if (source && normalize(source).includes(firstLine)) {return true;}
+        if (source && normalize(source).includes(firstLine)) {
+            return true;
+        }
     }
     return false;
 }
@@ -76,7 +79,9 @@ function isExcerptGrounded(excerpt: string, start: number, end: number, ctx: Par
  * "TP-02" where the schema asks for the enum), and rejects anything else.
  */
 function resolveCategory(value: string): CategoryName | undefined {
-    if (isCategoryName(value)) {return value;}
+    if (isCategoryName(value)) {
+        return value;
+    }
     return CATEGORY_BY_RULE_ID.get(value.trim().toUpperCase());
 }
 
@@ -100,7 +105,7 @@ function toFinding(raw: RawFinding, rule: PrivacyRule, ctx: ParseContext): Priva
     if (!isExcerptGrounded(raw.excerpt, clampedStart, clampedEnd, ctx)) {
         console.warn(
             `priv-audit: [${rule.id}] excerpt not found at lines ${clampedStart}-${clampedEnd}; ` +
-            'downgrading confidence'
+                'downgrading confidence'
         );
         confidence = downgradeConfidence(confidence);
     }
@@ -134,11 +139,7 @@ function toFinding(raw: RawFinding, rule: PrivacyRule, ctx: ParseContext): Priva
  * Turns one category's response into findings. Never throws: a category that
  * answers with garbage yields no findings and does not sink the other seven.
  */
-export function parseCategoryFindings(
-    text: string,
-    rule: PrivacyRule,
-    ctx: ParseContext
-): PrivacyFinding[] {
+export function parseCategoryFindings(text: string, rule: PrivacyRule, ctx: ParseContext): PrivacyFinding[] {
     const json = extractJsonArray(text);
     if (json === undefined) {
         console.warn(`priv-audit: [${rule.id}] response contained no JSON array:`, text.slice(0, 200));
@@ -165,7 +166,9 @@ export function parseCategoryFindings(
             continue;
         }
         const finding = toFinding(entry, rule, ctx);
-        if (finding) {findings.push(finding);}
+        if (finding) {
+            findings.push(finding);
+        }
     }
 
     return findings;

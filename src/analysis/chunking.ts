@@ -103,7 +103,9 @@ export async function planChunks(
     countTokens: CountTokens,
     overlapLines: number = CHUNK_OVERLAP_LINES
 ): Promise<Chunk[]> {
-    if (document.lineCount === 0) {return [];}
+    if (document.lineCount === 0) {
+        return [];
+    }
 
     const lastLine = document.lineCount - 1;
     const spans = await splitToFit(

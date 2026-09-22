@@ -4,9 +4,7 @@ import { clearAllFindings } from '../findings/store';
 import { repaintVisibleEditors } from '../ui/decorations';
 
 export function registerManifestCommands(context: vscode.ExtensionContext) {
-    context.subscriptions.push(
-        vscode.commands.registerCommand('priv-audit.resetManifest', resetManifest)
-    );
+    context.subscriptions.push(vscode.commands.registerCommand('priv-audit.resetManifest', resetManifest));
 }
 
 /**
@@ -17,7 +15,9 @@ export function registerManifestCommands(context: vscode.ExtensionContext) {
 export async function resetManifest(): Promise<void> {
     const folders = vscode.workspace.workspaceFolders ?? [];
     if (folders.length === 0) {
-        vscode.window.showInformationMessage('priv-audit: open a workspace folder to reset its findings manifest.');
+        vscode.window.showInformationMessage(
+            'priv-audit: open a workspace folder to reset its findings manifest.'
+        );
         return;
     }
 
@@ -27,7 +27,9 @@ export async function resetManifest(): Promise<void> {
         { modal: true },
         confirm
     );
-    if (choice !== confirm) {return;}
+    if (choice !== confirm) {
+        return;
+    }
 
     // Settle every folder rather than stopping at the first failure, so one
     // unwritable folder does not leave the others half-reset.
@@ -45,7 +47,7 @@ export async function resetManifest(): Promise<void> {
         });
         vscode.window.showErrorMessage(
             `priv-audit: could not reset the manifest in ${failed.map(f => f.name).join(', ')}. ` +
-            'See console for details.'
+                'See console for details.'
         );
         return;
     }

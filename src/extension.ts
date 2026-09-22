@@ -10,30 +10,33 @@ import { registerHoverProvider } from './ui/hover';
 import { disposeReport } from './ui/report';
 
 export function activate(context: vscode.ExtensionContext) {
+    console.log('PrivAudit is now active.');
 
-	console.log('PrivAudit is now active.');
+    registerAnalyzeCommand(context);
+    registerDecisionCommands(context);
+    registerManifestCommands(context);
+    registerViewCommands(context);
+    registerHoverProvider(context);
 
-	registerAnalyzeCommand(context);
-	registerDecisionCommands(context);
-	registerManifestCommands(context);
-	registerViewCommands(context);
-	registerHoverProvider(context);
+    // Findings persist between sessions, so restore them for whatever is
+    // already open and for anything the user opens later.
+    vscode.window.visibleTextEditors.forEach(editor => {
+        void restore(editor);
+    });
 
-	// Findings persist between sessions, so restore them for whatever is
-	// already open and for anything the user opens later.
-	vscode.window.visibleTextEditors.forEach(editor => { void restore(editor); });
-
-	context.subscriptions.push(
-		vscode.window.onDidChangeVisibleTextEditors(editors => {
-			editors.forEach(editor => { void restore(editor); });
-		}),
-		vscode.workspace.onDidCloseTextDocument(document => {
-			hydratedAt.delete(document.uri.toString());
-		}),
-		watchManifest(),
-		{ dispose: disposeDecorations },
-		{ dispose: disposeReport }
-	);
+    context.subscriptions.push(
+        vscode.window.onDidChangeVisibleTextEditors(editors => {
+            editors.forEach(editor => {
+                void restore(editor);
+            });
+        }),
+        vscode.workspace.onDidCloseTextDocument(document => {
+            hydratedAt.delete(document.uri.toString());
+        }),
+        watchManifest(),
+        { dispose: disposeDecorations },
+        { dispose: disposeReport }
+    );
 }
 
 /**
@@ -44,22 +47,22 @@ export function activate(context: vscode.ExtensionContext) {
 const hydratedAt = new Map<string, number>();
 
 async function restore(editor: vscode.TextEditor): Promise<void> {
-	const key = editor.document.uri.toString();
-	const version = editor.document.version;
+    const key = editor.document.uri.toString();
+    const version = editor.document.version;
 
-	if (hydratedAt.get(key) === version) {
-		// Still current; just repaint, since a new editor has no decorations.
-		updateDecorations(editor);
-		return;
-	}
+    if (hydratedAt.get(key) === version) {
+        // Still current; just repaint, since a new editor has no decorations.
+        updateDecorations(editor);
+        return;
+    }
 
-	try {
-		await loadFindingsFor(editor.document);
-		hydratedAt.set(key, version);
-		updateDecorations(editor);
-	} catch (error) {
-		console.error('priv-audit: could not restore findings for', key, error);
-	}
+    try {
+        await loadFindingsFor(editor.document);
+        hydratedAt.set(key, version);
+        updateDecorations(editor);
+    } catch (error) {
+        console.error('priv-audit: could not restore findings for', key, error);
+    }
 }
 
 /**
@@ -70,22 +73,26 @@ async function restore(editor: vscode.TextEditor): Promise<void> {
  * re-read the file and re-locate every visible editor's findings.
  */
 function watchManifest(): vscode.Disposable {
-	const watcher = vscode.workspace.createFileSystemWatcher(`**/${MANIFEST_DIR}/${MANIFEST_FILE}`);
+    const watcher = vscode.workspace.createFileSystemWatcher(`**/${MANIFEST_DIR}/${MANIFEST_FILE}`);
 
-	const reload = async (uri: vscode.Uri) => {
-		const folder = vscode.workspace.getWorkspaceFolder(uri)?.uri;
-		if (folder && (await manifestStore.isInSync(folder))) {return;}
+    const reload = async (uri: vscode.Uri) => {
+        const folder = vscode.workspace.getWorkspaceFolder(uri)?.uri;
+        if (folder && (await manifestStore.isInSync(folder))) {
+            return;
+        }
 
-		manifestStore.invalidate(folder);
-		hydratedAt.clear();
-		vscode.window.visibleTextEditors.forEach(editor => { void restore(editor); });
-	};
+        manifestStore.invalidate(folder);
+        hydratedAt.clear();
+        vscode.window.visibleTextEditors.forEach(editor => {
+            void restore(editor);
+        });
+    };
 
-	watcher.onDidChange(uri => void reload(uri));
-	watcher.onDidCreate(uri => void reload(uri));
-	watcher.onDidDelete(uri => void reload(uri));
+    watcher.onDidChange(uri => void reload(uri));
+    watcher.onDidCreate(uri => void reload(uri));
+    watcher.onDidDelete(uri => void reload(uri));
 
-	return watcher;
+    return watcher;
 }
 
 export function deactivate() {}

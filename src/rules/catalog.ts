@@ -25,7 +25,7 @@ export const CATEGORY_NAMES = [
     'AI_USAGE',
 ] as const;
 
-export type CategoryName = typeof CATEGORY_NAMES[number];
+export type CategoryName = (typeof CATEGORY_NAMES)[number];
 
 export function isCategoryName(value: unknown): value is CategoryName {
     return typeof value === 'string' && (CATEGORY_NAMES as readonly string[]).includes(value);
@@ -265,11 +265,11 @@ export const PRIVACY_RULES: PrivacyRule[] = [
             "modifying a user's own record, delete operations scoped to the requesting user's " +
             'own identifier, and bulk-export or "download my data" handlers. The key ' +
             "discriminator is scope - the operation must be scoped to the requesting user's " +
-            "own identifier, not an administrative or unscoped operation touching arbitrary " +
+            'own identifier, not an administrative or unscoped operation touching arbitrary ' +
             "users' records. An admin panel that lets staff act on any user's data is a " +
             'different concern (see DS-06), not this category.',
         elicitationQuestions: [
-            'Does this code implement a read, update, or delete operation whose target record is scoped to the currently authenticated/requesting user\'s own identifier?',
+            "Does this code implement a read, update, or delete operation whose target record is scoped to the currently authenticated/requesting user's own identifier?",
             'Is there a data-export or "download my data" handler assembling a user\'s own records into an exportable format?',
             "Is the operation self-service (initiated by the user, about their own data) rather than administrative (staff acting on another user's data)?",
         ],
@@ -512,7 +512,7 @@ export const PRIVACY_RULES: PrivacyRule[] = [
         displayName: 'AI/ML Usage & Automated Decision-Making (custom category - not part of OPP-115)',
         baseDescription:
             'How the application processes user information using AI/ML models - including ' +
-            'sending user data to a model or AI API for inference, using a model\'s output to ' +
+            "sending user data to a model or AI API for inference, using a model's output to " +
             'make or influence a decision about a user, or incorporating user data into a ' +
             'dataset used to train or fine-tune a model.',
         chainOfThought:

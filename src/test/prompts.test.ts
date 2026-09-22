@@ -36,8 +36,7 @@ async function render(
     model = stubModel()
 ): Promise<string> {
     const document =
-        props.document ??
-        (await vscode.workspace.openTextDocument({ content: SAMPLE, language: 'python' }));
+        props.document ?? (await vscode.workspace.openTextDocument({ content: SAMPLE, language: 'python' }));
 
     const { messages } = await renderPrompt(
         CategoryAnalysisPrompt,
@@ -47,9 +46,7 @@ async function render(
     );
 
     return messages
-        .flatMap(message =>
-            message.content.map(part => ('value' in part ? String(part.value) : ''))
-        )
+        .flatMap(message => message.content.map(part => ('value' in part ? String(part.value) : '')))
         .join('\n');
 }
 
@@ -223,7 +220,11 @@ suite('longestFittingPrefix', () => {
             while (expected < lines.length && byChars(lines.slice(0, expected + 1).join('\n')) <= budget) {
                 expected += 1;
             }
-            assert.strictEqual(await longestFittingPrefix(lines, budget, byChars), expected, `budget ${budget}`);
+            assert.strictEqual(
+                await longestFittingPrefix(lines, budget, byChars),
+                expected,
+                `budget ${budget}`
+            );
         }
     });
 

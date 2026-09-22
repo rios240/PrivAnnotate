@@ -26,7 +26,9 @@ const MAX_CONCURRENT_REQUESTS = 16;
 const MAX_CHUNK_OVERLAP_LINES = 200;
 
 function clampInteger(value: unknown, min: number, max: number, fallback: number): number {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {return fallback;}
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return fallback;
+    }
     return Math.min(max, Math.max(min, Math.round(value)));
 }
 

@@ -1,6 +1,12 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { emptyManifest, ManifestStore, manifestStore, manifestUri, StoredFinding } from '../findings/manifest';
+import {
+    emptyManifest,
+    ManifestStore,
+    manifestStore,
+    manifestUri,
+    StoredFinding,
+} from '../findings/manifest';
 import { computeFingerprint } from '../findings/fingerprint';
 import { loadFindingsFor, relocateAll } from '../findings/persistence';
 import { resetManifest } from '../commands/manifest';

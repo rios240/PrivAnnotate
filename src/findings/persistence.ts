@@ -43,7 +43,9 @@ export function hydrate(document: vscode.TextDocument, stored: StoredFinding[]):
 /** Loads a document's findings from the manifest into the in-memory store. */
 export async function loadFindingsFor(document: vscode.TextDocument): Promise<boolean> {
     const location = locate(document);
-    if (!location) {return false;}
+    if (!location) {
+        return false;
+    }
 
     const manifest = await manifestStore.load(location.folder);
     const entry = manifest.files[location.path];
@@ -61,7 +63,9 @@ export async function loadFindingsFor(document: vscode.TextDocument): Promise<bo
 /** The manifest's findings for a document, or none when it cannot be persisted. */
 export async function loadStoredFindings(document: vscode.TextDocument): Promise<StoredFinding[]> {
     const location = locate(document);
-    if (!location) {return [];}
+    if (!location) {
+        return [];
+    }
 
     const manifest = await manifestStore.load(location.folder);
     return manifest.files[location.path]?.findings ?? [];
@@ -76,7 +80,9 @@ export async function persistFindings(
     findings: PrivacyFinding[]
 ): Promise<boolean> {
     const location = locate(document);
-    if (!location) {return false;}
+    if (!location) {
+        return false;
+    }
 
     await manifestStore.update(location.folder, manifest => {
         manifest.files[location.path] = {

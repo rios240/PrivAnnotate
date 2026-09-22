@@ -47,7 +47,9 @@ function section(
     title: string,
     items: Array<PrivacyFinding | StoredFinding>
 ): void {
-    if (items.length === 0) {return;}
+    if (items.length === 0) {
+        return;
+    }
     out.appendLine(`${title} (${items.length})`);
     items.forEach(item => out.appendLine(describe(item)));
     out.appendLine('');
@@ -58,18 +60,13 @@ function section(
  * surfaces a one-line summary, so a re-run says what actually changed rather
  * than just replacing the annotations.
  */
-export function reportRun(
-    document: vscode.TextDocument,
-    result: ReconcileResult,
-    context: RunContext
-): void {
+export function reportRun(document: vscode.TextDocument, result: ReconcileResult, context: RunContext): void {
     const out = getChannel();
     const path = vscode.workspace.asRelativePath(document.uri);
 
     out.appendLine(`--- ${new Date().toLocaleString()} · ${path}`);
     out.appendLine(
-        `${context.requests} requests across ${context.chunks} ` +
-        `chunk${context.chunks === 1 ? '' : 's'}`
+        `${context.requests} requests across ${context.chunks} ` + `chunk${context.chunks === 1 ? '' : 's'}`
     );
     out.appendLine('');
 
@@ -79,8 +76,12 @@ export function reportRun(
     section(out, 'Reopened (previously resolved)', result.reopened);
     section(out, 'No longer found', result.resolved);
 
-    if (result.added.length === 0 && result.persisted.length === 0 &&
-        result.suppressed.length === 0 && result.resolved.length === 0) {
+    if (
+        result.added.length === 0 &&
+        result.persisted.length === 0 &&
+        result.suppressed.length === 0 &&
+        result.resolved.length === 0
+    ) {
         out.appendLine('No privacy practices detected.');
         out.appendLine('');
     }
@@ -88,7 +89,7 @@ export function reportRun(
     if (context.truncation) {
         out.appendLine(
             `Warning: a chunk was trimmed to ${context.truncation.includedLines} of ` +
-            `${context.truncation.totalLines} lines to fit the model context.`
+                `${context.truncation.totalLines} lines to fit the model context.`
         );
     }
     if (context.failedCategories.length > 0) {
@@ -97,7 +98,7 @@ export function reportRun(
     if (context.editedDuringRun) {
         out.appendLine(
             'Warning: the file was edited during analysis; findings were re-anchored to the ' +
-            'current text, and any marked stale should be re-checked by running Analyze again.'
+                'current text, and any marked stale should be re-checked by running Analyze again.'
         );
     }
     if (!context.saved) {
@@ -110,15 +111,22 @@ export function reportRun(
 
 function showSummary(result: ReconcileResult, context: RunContext): void {
     const parts: string[] = [];
-    if (result.added.length) {parts.push(`${result.added.length} new`);}
-    if (result.persisted.length) {parts.push(`${result.persisted.length} still present`);}
-    if (result.resolved.length) {parts.push(`${result.resolved.length} no longer found`);}
-    if (result.suppressed.length) {parts.push(`${result.suppressed.length} suppressed`);}
+    if (result.added.length) {
+        parts.push(`${result.added.length} new`);
+    }
+    if (result.persisted.length) {
+        parts.push(`${result.persisted.length} still present`);
+    }
+    if (result.resolved.length) {
+        parts.push(`${result.resolved.length} no longer found`);
+    }
+    if (result.suppressed.length) {
+        parts.push(`${result.suppressed.length} suppressed`);
+    }
 
     const summary = parts.length > 0 ? parts.join(', ') : 'no privacy practices detected';
-    const failed = context.failedCategories.length > 0
-        ? ` · ${context.failedCategories.length} categories failed`
-        : '';
+    const failed =
+        context.failedCategories.length > 0 ? ` · ${context.failedCategories.length} categories failed` : '';
 
     const message = `priv-audit: ${summary}${failed}.`;
     const show = 'Show report';
@@ -129,6 +137,8 @@ function showSummary(result: ReconcileResult, context: RunContext): void {
             : vscode.window.showInformationMessage(message, show);
 
     notify.then(choice => {
-        if (choice === show) {showReport();}
+        if (choice === show) {
+            showReport();
+        }
     });
 }

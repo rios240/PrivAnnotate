@@ -212,7 +212,12 @@ suite('relocate', () => {
         const text = source(lines);
         const index = indexLines(text);
         const cases: Array<[string, number, number]> = [
-            ['x = 1', 5, 5], ['x = 1', 2, 3], ['z = 3', 1, 2], ['w = 4', 6, 6], ['missing', 3, 4], ['', 1, 1],
+            ['x = 1', 5, 5],
+            ['x = 1', 2, 3],
+            ['z = 3', 1, 2],
+            ['w = 4', 6, 6],
+            ['missing', 3, 4],
+            ['', 1, 1],
         ];
 
         for (const [excerpt, start, end] of cases) {

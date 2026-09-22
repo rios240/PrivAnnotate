@@ -41,10 +41,7 @@ suite('extractJsonArray', () => {
     });
 
     test('recovers an array buried in prose', () => {
-        assert.strictEqual(
-            extractJsonArray('Here are my findings:\n[1, 2]\nHope that helps!'),
-            '[1, 2]'
-        );
+        assert.strictEqual(extractJsonArray('Here are my findings:\n[1, 2]\nHope that helps!'), '[1, 2]');
     });
 
     test('returns undefined when there is no array', () => {
@@ -152,10 +149,7 @@ suite('parseCategoryFindings', () => {
         const [result] = parseCategoryFindings(text, RULE, ctx);
 
         assert.ok(result);
-        assert.deepStrictEqual(result.crossReferences, [
-            'THIRD_PARTY_SHARING_COLLECTION',
-            'DATA_RETENTION',
-        ]);
+        assert.deepStrictEqual(result.crossReferences, ['THIRD_PARTY_SHARING_COLLECTION', 'DATA_RETENTION']);
     });
 
     test('omits the file field when the context has no path', () => {

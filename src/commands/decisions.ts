@@ -11,7 +11,9 @@ interface DecisionArgs {
 }
 
 function isDecisionArgs(value: unknown): value is DecisionArgs {
-    if (typeof value !== 'object' || value === null) {return false;}
+    if (typeof value !== 'object' || value === null) {
+        return false;
+    }
     const v = value as Record<string, unknown>;
     return typeof v.uri === 'string' && typeof v.fingerprint === 'string';
 }
@@ -29,10 +31,10 @@ async function setStatus(args: unknown, status: FindingStatus): Promise<void> {
         return;
     }
 
-    const document = vscode.workspace.textDocuments.find(
-        doc => doc.uri.toString() === uri.toString()
-    );
-    if (!document) {return;}
+    const document = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === uri.toString());
+    if (!document) {
+        return;
+    }
 
     const decidedAt = status === 'undecided' ? undefined : new Date().toISOString();
     finding.status = status;
@@ -52,9 +54,13 @@ async function setStatus(args: unknown, status: FindingStatus): Promise<void> {
     try {
         await manifestStore.update(location.folder, manifest => {
             const entry = manifest.files[location.path];
-            if (!entry) {return;}
+            if (!entry) {
+                return;
+            }
             const stored = entry.findings.find(f => f.fingerprint === args.fingerprint);
-            if (!stored) {return;}
+            if (!stored) {
+                return;
+            }
             stored.status = status;
             stored.decidedAt = decidedAt;
         });
@@ -66,14 +72,8 @@ async function setStatus(args: unknown, status: FindingStatus): Promise<void> {
 
 export function registerDecisionCommands(context: vscode.ExtensionContext) {
     context.subscriptions.push(
-        vscode.commands.registerCommand('priv-audit.acceptFinding', args =>
-            setStatus(args, 'accepted')
-        ),
-        vscode.commands.registerCommand('priv-audit.rejectFinding', args =>
-            setStatus(args, 'rejected')
-        ),
-        vscode.commands.registerCommand('priv-audit.clearDecision', args =>
-            setStatus(args, 'undecided')
-        )
+        vscode.commands.registerCommand('priv-audit.acceptFinding', args => setStatus(args, 'accepted')),
+        vscode.commands.registerCommand('priv-audit.rejectFinding', args => setStatus(args, 'rejected')),
+        vscode.commands.registerCommand('priv-audit.clearDecision', args => setStatus(args, 'undecided'))
     );
 }

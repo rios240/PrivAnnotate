@@ -47,7 +47,9 @@ export function reconcile(
 
     for (const finding of fresh) {
         // A single run can surface the same span twice via overlapping chunks.
-        if (seen.has(finding.fingerprint)) {continue;}
+        if (seen.has(finding.fingerprint)) {
+            continue;
+        }
         seen.add(finding.fingerprint);
 
         const previous = storedByFingerprint.get(finding.fingerprint);
@@ -69,7 +71,9 @@ export function reconcile(
         };
 
         findings.push(entry);
-        if (previous.resolvedAt) {reopened.push(entry);}
+        if (previous.resolvedAt) {
+            reopened.push(entry);
+        }
         if (entry.status === 'rejected') {
             suppressed.push(entry);
         } else {
@@ -96,7 +100,9 @@ export function mergeForStorage(
     const retained: PrivacyFinding[] = [];
 
     for (const previous of stored) {
-        if (fresh.has(previous.fingerprint)) {continue;}
+        if (fresh.has(previous.fingerprint)) {
+            continue;
+        }
         retained.push({
             ...previous,
             resolvedAt: previous.resolvedAt ?? now,
@@ -117,9 +123,13 @@ export function indexLines(source: TextSource): LineIndex {
     const index = new Map<string, number[]>();
     for (let line = 1; line <= source.lineCount; line++) {
         const text = source.lineAt(line);
-        if (text === undefined) {continue;}
+        if (text === undefined) {
+            continue;
+        }
         const key = normalizeExcerpt(text);
-        if (key.length === 0) {continue;}
+        if (key.length === 0) {
+            continue;
+        }
         const lines = index.get(key);
         if (lines) {
             lines.push(line);
@@ -148,7 +158,9 @@ export function relocate(
 ): { lineRange: LineRange; stale: boolean } {
     const clamped = clampRange(stored, source.lineCount);
     const anchor = excerptAnchor(excerpt);
-    if (!anchor) {return { lineRange: clamped, stale: true };}
+    if (!anchor) {
+        return { lineRange: clamped, stale: true };
+    }
 
     // Already correct: the common case, and cheaper than scanning the file.
     if (lineMatches(source, clamped.start, anchor)) {
@@ -164,7 +176,9 @@ export function relocate(
         }
     }
 
-    if (best === undefined) {return { lineRange: clamped, stale: true };}
+    if (best === undefined) {
+        return { lineRange: clamped, stale: true };
+    }
 
     const span = Math.max(0, stored.end - stored.start);
     return {
@@ -176,7 +190,9 @@ export function relocate(
 function scanFor(source: TextSource, anchor: string): number[] {
     const lines: number[] = [];
     for (let line = 1; line <= source.lineCount; line++) {
-        if (lineMatches(source, line, anchor)) {lines.push(line);}
+        if (lineMatches(source, line, anchor)) {
+            lines.push(line);
+        }
     }
     return lines;
 }

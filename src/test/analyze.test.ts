@@ -7,12 +7,16 @@ suite('runWithConcurrency', () => {
         let inFlight = 0;
         let peak = 0;
 
-        await runWithConcurrency(Array.from({ length: 8 }, (_, i) => i), 3, async () => {
-            inFlight += 1;
-            peak = Math.max(peak, inFlight);
-            await new Promise(resolve => setTimeout(resolve, 5));
-            inFlight -= 1;
-        });
+        await runWithConcurrency(
+            Array.from({ length: 8 }, (_, i) => i),
+            3,
+            async () => {
+                inFlight += 1;
+                peak = Math.max(peak, inFlight);
+                await new Promise(resolve => setTimeout(resolve, 5));
+                inFlight -= 1;
+            }
+        );
 
         assert.ok(peak <= 3, `peak concurrency was ${peak}`);
         assert.ok(peak > 1, 'work did not actually run in parallel');
@@ -30,11 +34,18 @@ suite('runWithConcurrency', () => {
 
     test('runs every item exactly once', async () => {
         const seen: number[] = [];
-        await runWithConcurrency(Array.from({ length: 8 }, (_, i) => i), 3, async i => {
-            seen.push(i);
-        });
+        await runWithConcurrency(
+            Array.from({ length: 8 }, (_, i) => i),
+            3,
+            async i => {
+                seen.push(i);
+            }
+        );
 
-        assert.deepStrictEqual([...seen].sort((a, b) => a - b), [0, 1, 2, 3, 4, 5, 6, 7]);
+        assert.deepStrictEqual(
+            [...seen].sort((a, b) => a - b),
+            [0, 1, 2, 3, 4, 5, 6, 7]
+        );
     });
 
     test('handles a limit larger than the item count', async () => {
@@ -46,7 +57,9 @@ suite('runWithConcurrency', () => {
         // Mirrors analyzeCategory: failures are caught per unit and yield [].
         const results = await runWithConcurrency([1, 2, 3], 3, async n => {
             try {
-                if (n === 2) {throw new Error('category failed');}
+                if (n === 2) {
+                    throw new Error('category failed');
+                }
                 return n;
             } catch {
                 return 0;

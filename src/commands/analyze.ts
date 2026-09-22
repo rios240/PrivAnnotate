@@ -27,7 +27,9 @@ const inFlight = new Set<string>();
 /** Claims `uri` for an analysis run; false when one is already running. */
 export function tryBeginAnalysis(uri: vscode.Uri): boolean {
     const key = uri.toString();
-    if (inFlight.has(key)) {return false;}
+    if (inFlight.has(key)) {
+        return false;
+    }
     inFlight.add(key);
     return true;
 }
@@ -37,170 +39,184 @@ export function endAnalysis(uri: vscode.Uri): void {
 }
 
 export function registerAnalyzeCommand(context: vscode.ExtensionContext) {
-  const analyzeCommand = vscode.commands.registerTextEditorCommand(
-    'priv-audit.analyze',
-    async (textEditor: vscode.TextEditor) => {
-      const uri = textEditor.document.uri;
-      if (!tryBeginAnalysis(uri)) {
-          vscode.window.showInformationMessage('priv-audit: this file is already being analyzed.');
-          return;
-      }
+    const analyzeCommand = vscode.commands.registerTextEditorCommand(
+        'priv-audit.analyze',
+        async (textEditor: vscode.TextEditor) => {
+            const uri = textEditor.document.uri;
+            if (!tryBeginAnalysis(uri)) {
+                vscode.window.showInformationMessage('priv-audit: this file is already being analyzed.');
+                return;
+            }
 
-      try {
-          await analyze(textEditor);
-      } finally {
-          endAnalysis(uri);
-      }
-    }
-  );
+            try {
+                await analyze(textEditor);
+            } finally {
+                endAnalysis(uri);
+            }
+        }
+    );
 
-  context.subscriptions.push(analyzeCommand);
+    context.subscriptions.push(analyzeCommand);
 }
 
 async function analyze(textEditor: vscode.TextEditor): Promise<void> {
-      await vscode.window.withProgress(
+    await vscode.window.withProgress(
         {
-          location: vscode.ProgressLocation.Notification,
-          title: 'Analyzing code for privacy practices',
-          cancellable: true,
+            location: vscode.ProgressLocation.Notification,
+            title: 'Analyzing code for privacy practices',
+            cancellable: true,
         },
         async (progress, cancellationToken) => {
-          progress.report({ message: 'Selecting model...' });
+            progress.report({ message: 'Selecting model...' });
 
-          // Read once per run, so a settings change mid-run cannot mix configurations.
-          const settings = getSettings();
-          const [model] = await vscode.lm.selectChatModels({
-              vendor: settings.modelVendor,
-              ...(settings.modelFamily ? { family: settings.modelFamily } : {}),
-          });
+            // Read once per run, so a settings change mid-run cannot mix configurations.
+            const settings = getSettings();
+            const [model] = await vscode.lm.selectChatModels({
+                vendor: settings.modelVendor,
+                ...(settings.modelFamily ? { family: settings.modelFamily } : {}),
+            });
 
-          if (!model) {
-              const wanted = settings.modelFamily
-                  ? `${settings.modelVendor}/${settings.modelFamily}`
-                  : settings.modelVendor;
-              vscode.window.showErrorMessage(
-                  `priv-audit: no language model found for "${wanted}". Check the privAudit.model settings.`
-              );
-              return;
-          }
+            if (!model) {
+                const wanted = settings.modelFamily
+                    ? `${settings.modelVendor}/${settings.modelFamily}`
+                    : settings.modelVendor;
+                vscode.window.showErrorMessage(
+                    `priv-audit: no language model found for "${wanted}". Check the privAudit.model settings.`
+                );
+                return;
+            }
 
-          if (cancellationToken.isCancellationRequested) {return;}
+            if (cancellationToken.isCancellationRequested) {
+                return;
+            }
 
-          const document = textEditor.document;
-          // Findings are located by line number against the text as it was
-          // when each chunk was read; an edit mid-run moves the code under them.
-          const startVersion = document.version;
+            const document = textEditor.document;
+            // Findings are located by line number against the text as it was
+            // when each chunk was read; an edit mid-run moves the code under them.
+            const startVersion = document.version;
 
-          progress.report({ message: 'Planning coverage...' });
+            progress.report({ message: 'Planning coverage...' });
 
-          // The whole file is analyzed, split into windows that each fit the
-          // model's context alongside one detection rule.
-          const chunks = await planChunks(
-              document,
-              codeBudgetFor(model.maxInputTokens),
-              text => Promise.resolve(model.countTokens(text, cancellationToken)),
-              settings.chunkOverlapLines
-          );
+            // The whole file is analyzed, split into windows that each fit the
+            // model's context alongside one detection rule.
+            const chunks = await planChunks(
+                document,
+                codeBudgetFor(model.maxInputTokens),
+                text => Promise.resolve(model.countTokens(text, cancellationToken)),
+                settings.chunkOverlapLines
+            );
 
-          if (chunks.length === 0) {
-              vscode.window.showInformationMessage('priv-audit: nothing to analyze in this file.');
-              return;
-          }
+            if (chunks.length === 0) {
+                vscode.window.showInformationMessage('priv-audit: nothing to analyze in this file.');
+                return;
+            }
 
-          if (cancellationToken.isCancellationRequested) {return;}
+            if (cancellationToken.isCancellationRequested) {
+                return;
+            }
 
-          // Eight requests per chunk would otherwise raise the same warning many
-          // times over. Last write wins: prompt-tsx may size an element more
-          // than once, and only the final pass reflects what gets sent.
-          let truncation: ITruncationInfo | undefined;
-          const onTruncated = (info: ITruncationInfo) => { truncation = info; };
+            // Eight requests per chunk would otherwise raise the same warning many
+            // times over. Last write wins: prompt-tsx may size an element more
+            // than once, and only the final pass reflects what gets sent.
+            let truncation: ITruncationInfo | undefined;
+            const onTruncated = (info: ITruncationInfo) => {
+                truncation = info;
+            };
 
-          const units: AnalysisUnit[] = chunks.flatMap(chunk =>
-              PRIVACY_RULES.map(rule => ({ rule, chunk }))
-          );
+            const units: AnalysisUnit[] = chunks.flatMap(chunk =>
+                PRIVACY_RULES.map(rule => ({ rule, chunk }))
+            );
 
-          let completed = 0;
-          const failures = new Set<string>();
-          const reportProgress = () =>
-              progress.report({
-                  message:
-                      chunks.length > 1
-                          ? `${completed}/${units.length} requests (${chunks.length} chunks)...`
-                          : `Analyzed ${completed}/${units.length} categories...`,
-              });
+            let completed = 0;
+            const failures = new Set<string>();
+            const reportProgress = () =>
+                progress.report({
+                    message:
+                        chunks.length > 1
+                            ? `${completed}/${units.length} requests (${chunks.length} chunks)...`
+                            : `Analyzed ${completed}/${units.length} categories...`,
+                });
 
-          reportProgress();
+            reportProgress();
 
-          const analyzeUnit = async ({ rule, chunk }: AnalysisUnit): Promise<PrivacyFinding[]> => {
-              if (cancellationToken.isCancellationRequested) {return [];}
+            const analyzeUnit = async ({ rule, chunk }: AnalysisUnit): Promise<PrivacyFinding[]> => {
+                if (cancellationToken.isCancellationRequested) {
+                    return [];
+                }
 
-              const parseContext = buildParseContext(document, chunk.range);
+                const parseContext = buildParseContext(document, chunk.range);
 
-              try {
-                  const messages = await constructCategoryPrompt(model, {
-                      rule,
-                      document,
-                      range: chunk.range,
-                      filePath: parseContext.filePath,
-                      onTruncated,
-                  });
+                try {
+                    const messages = await constructCategoryPrompt(model, {
+                        rule,
+                        document,
+                        range: chunk.range,
+                        filePath: parseContext.filePath,
+                        onTruncated,
+                    });
 
-                  if (cancellationToken.isCancellationRequested) {return [];}
+                    if (cancellationToken.isCancellationRequested) {
+                        return [];
+                    }
 
-                  // If the instructions alone exhausted the context window, the
-                  // code message is pruned away entirely. Sending that costs a
-                  // request and can only produce ungrounded findings.
-                  if (!containsCodeInput(messages)) {
-                      throw new Error(
-                          `context window too small to include any code alongside rule ${rule.id}`
-                      );
-                  }
+                    // If the instructions alone exhausted the context window, the
+                    // code message is pruned away entirely. Sending that costs a
+                    // request and can only produce ungrounded findings.
+                    if (!containsCodeInput(messages)) {
+                        throw new Error(
+                            `context window too small to include any code alongside rule ${rule.id}`
+                        );
+                    }
 
-                  const response = await model.sendRequest(messages, {}, cancellationToken);
-                  return await parseCategoryResponse(response, rule, parseContext);
-              } catch (error) {
-                  if (cancellationToken.isCancellationRequested) {return [];}
-                  console.error(
-                      `priv-audit: category ${rule.id} failed on chunk ${chunk.index}/${chunk.total}:`,
-                      error
-                  );
-                  failures.add(rule.id);
-                  return [];
-              } finally {
-                  completed += 1;
-                  reportProgress();
-              }
-          };
+                    const response = await model.sendRequest(messages, {}, cancellationToken);
+                    return await parseCategoryResponse(response, rule, parseContext);
+                } catch (error) {
+                    if (cancellationToken.isCancellationRequested) {
+                        return [];
+                    }
+                    console.error(
+                        `priv-audit: category ${rule.id} failed on chunk ${chunk.index}/${chunk.total}:`,
+                        error
+                    );
+                    failures.add(rule.id);
+                    return [];
+                } finally {
+                    completed += 1;
+                    reportProgress();
+                }
+            };
 
-          const results = await runWithConcurrency(units, settings.maxConcurrentRequests, analyzeUnit);
+            const results = await runWithConcurrency(units, settings.maxConcurrentRequests, analyzeUnit);
 
-          if (cancellationToken.isCancellationRequested) {return;}
+            if (cancellationToken.isCancellationRequested) {
+                return;
+            }
 
-          progress.report({ message: 'Reconciling with previous findings...' });
+            progress.report({ message: 'Reconciling with previous findings...' });
 
-          // Re-anchor before reconciling: fingerprints ignore line numbers, so
-          // identity is unaffected, and every downstream view gets current lines.
-          const editedDuringRun = document.version !== startVersion;
-          const fresh = editedDuringRun ? relocateAll(document, results.flat()) : results.flat();
-          const previous = await loadStoredFindings(document);
-          const result = reconcile(fresh, previous);
+            // Re-anchor before reconciling: fingerprints ignore line numbers, so
+            // identity is unaffected, and every downstream view gets current lines.
+            const editedDuringRun = document.version !== startVersion;
+            const fresh = editedDuringRun ? relocateAll(document, results.flat()) : results.flat();
+            const previous = await loadStoredFindings(document);
+            const result = reconcile(fresh, previous);
 
-          setFindings(document.uri, result.findings);
-          // The originating editor may have been closed mid-run; repaint by URI.
-          refreshEditorsFor(document.uri);
+            setFindings(document.uri, result.findings);
+            // The originating editor may have been closed mid-run; repaint by URI.
+            refreshEditorsFor(document.uri);
 
-          const saved = await persistAnalysis(document, result, previous);
+            const saved = await persistAnalysis(document, result, previous);
 
-          reportRun(document, result, {
-              chunks: chunks.length,
-              requests: units.length,
-              failedCategories: [...failures],
-              truncation,
-              saved,
-              editedDuringRun,
-          });
+            reportRun(document, result, {
+                chunks: chunks.length,
+                requests: units.length,
+                failedCategories: [...failures],
+                truncation,
+                saved,
+                editedDuringRun,
+            });
         }
-      );
+    );
 }
 
 async function persistAnalysis(
@@ -246,7 +262,9 @@ export async function runWithConcurrency<T, R>(
     const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
         while (true) {
             const index = next++;
-            if (index >= items.length) {return;}
+            if (index >= items.length) {
+                return;
+            }
             results[index] = await worker(items[index], index);
         }
     });
