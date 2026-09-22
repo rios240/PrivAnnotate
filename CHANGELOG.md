@@ -16,14 +16,46 @@ findings, accept/reject triage, and a persistent workspace manifest.
 
 * **Toggle All Findings.** `priv-audit.toggleFindings` hides or shows every finding
   decoration across all editors without touching the manifest; the rejected-findings
-  toggle still applies once findings are shown again (`src/misc/decorations.ts`).
+  toggle still applies once findings are shown again. Also available as an eye button in
+  the editor title bar (`src/commands/view.ts`, `src/ui/decorations.ts`).
 * **Reset Findings Manifest.** `priv-audit.resetManifest` asks for confirmation, then
   deletes `.privaudit/findings.json` in every workspace folder and clears all in-memory
   findings. The delete is queued behind in-flight writes so a pending decision cannot
-  resurrect the file (`ManifestStore.reset`, `src/decisions.ts`).
+  resurrect the file (`ManifestStore.reset`, `src/commands/manifest.ts`).
+* **Settings.** `privAudit.model.vendor`, `privAudit.model.family`,
+  `privAudit.analysis.maxConcurrentRequests`, and `privAudit.analysis.chunkOverlapLines`,
+  validated and clamped in `src/config.ts`. The model vendor is no longer hard-coded.
+* **Context keys** `privAudit.findingsVisible` and `privAudit.rejectedVisible`; Toggle
+  Rejected Findings is only offered while findings are visible.
+* **Prettier and EditorConfig**, with `npm run format` / `npm run format:check`.
+
+### Changed - 2026-09-22
+
+* **"Detection cards" are now "detection rules".** `PdcCard` → `PrivacyRule`,
+  `PDC_CARDS` → `PRIVACY_RULES`, `getCard` → `getRule`, and the prompt wording. Rule IDs
+  (`FP-01` … `AI-08`) are unchanged.
+* **Sources reorganized by layer:** `commands/`, `analysis/`, `rules/`, `findings/`,
+  `ui/`. The in-memory finding store and manifest load/save code moved out of the
+  decoration and command modules into `findings/store.ts` and `findings/persistence.ts`.
+* **Lazy hovers.** Hover text is built by a `HoverProvider` when a line is hovered,
+  instead of for every decoration group on every repaint; a hover lists every visible
+  finding covering that line.
+* **Fewer manifest reloads.** The file watcher ignores the extension's own writes
+  (`ManifestStore.isInSync`), so accepting a finding no longer re-reads the manifest and
+  re-locates every visible editor's findings.
+* **Cheaper prompt sizing.** The code section is counted once and only binary-searched
+  when it overflows, instead of one token count per line per request.
+* **Cheaper relocation.** Stored spans are relocated against a line index built once per
+  document instead of re-normalizing the whole file per finding.
+* Dropped the unused `PrivacyFinding.id`; `StoredFinding` is now derived from
+  `PrivacyFinding` so the two cannot drift.
+* `docs/ARCHITECTURE.md` rewritten from scratch.
 
 ### Fixed - 2026-09-22
 
+* Editing a file while Analyze runs no longer leaves findings on shifted lines: they are
+  re-anchored to the current text and the report flags the run.
+* Analyze can no longer run twice concurrently on the same file.
 * Deleting or reverting the manifest outside the extension no longer leaves stale
   decorations on screen: `loadFindingsFor` now clears a workspace file's findings when
   the manifest has no entry for it.
