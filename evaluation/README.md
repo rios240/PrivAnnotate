@@ -5,7 +5,7 @@ It contains:
 
 * **Trailmark** (`trailmark/`), a small fictional hiking-tracker web app whose code implements
   the eight detection rules in
-  [`docs/privacy-detection-information-categories.md`](../docs/privacy-detection-information-categories.md).
+  [`docs/DETECTION_RULES.md`](../docs/DETECTION_RULES.md).
   Some cases mirror the rule text and worked examples closely. Others move one step away,
   to test whether the model generalizes.
 * **A hand-labeled ground truth** (`ground-truth/`), in exactly the format of the manifest
@@ -52,7 +52,7 @@ evaluation/
    `package.json` and `worker/requirements.txt` are there for realism only and are not scored.
 5. Score the run from the repository root:
 
-   ```bash
+   ```bash  
    node evaluation/tools/score.mjs --pred evaluation/trailmark/.privannotate/findings.json
    ```
 
