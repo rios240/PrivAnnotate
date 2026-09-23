@@ -1,0 +1,871 @@
+{
+  "version": 1,
+  "app": "trailmark",
+  "labeledAt": "2026-09-23T00:00:00.000Z",
+  "files": {
+    "public/index.html": { "language": "html" },
+    "public/js/consent.js": { "language": "browser-js" },
+    "public/js/analytics.js": { "language": "browser-js" },
+    "public/js/recorder.js": { "language": "browser-js" },
+    "server/app.js": { "language": "node" },
+    "server/middleware/audience.js": { "language": "node" },
+    "server/routes/auth.js": { "language": "node" },
+    "server/routes/account.js": { "language": "node" },
+    "server/routes/activities.js": { "language": "node" },
+    "server/routes/community.js": { "language": "node" },
+    "server/routes/billing.js": { "language": "node" },
+    "server/services/mailer.js": { "language": "node" },
+    "server/jobs/nightly.js": { "language": "node" },
+    "worker/coach.py": { "language": "python" },
+    "worker/screening.py": { "language": "python" },
+    "db/migrations/0007_location_pings.sql": { "language": "sql" },
+    "deploy/nginx.conf": { "language": "config" },
+    "deploy/logrotate/trailmark.conf": { "language": "config" }
+  },
+  "spans": [
+    {
+      "id": "H1",
+      "file": "public/index.html",
+      "start": "<section id=\"cookie-choices\"",
+      "end": "</script>",
+      "positives": [
+        {
+          "rule": "UC-03",
+          "tier": "boundary",
+          "probe": "consent UI written as HTML markup plus an inline script",
+          "evidence": "The cookie-choices banner lets the user pick analytics/marketing consent; saveChoices stores the choice in localStorage and PUTs partnerSharing to /api/me/privacy."
+        }
+      ],
+      "optional": [
+        { "rule": "FP-01", "why": "The only user data sent to the first-party API is the consent choice itself, which UC-03 already covers." }
+      ]
+    },
+    {
+      "id": "C1",
+      "file": "public/js/consent.js",
+      "start": "function apply(choices) {",
+      "end": "=    }",
+      "positives": [
+        {
+          "rule": "UC-03",
+          "tier": "direct",
+          "probe": "consent flags gate loading tracking SDKs",
+          "evidence": "choices.analytics gates loading Segment and choices.marketing gates loading the Meta Pixel, so both SDKs only run with the user's consent."
+        },
+        {
+          "rule": "TP-02",
+          "tier": "boundary",
+          "probe": "third-party SDKs loaded by script injection, then passed the user id",
+          "evidence": "Loads Segment and the Meta Pixel from their CDNs and passes user.id to analytics.identify and fbq('init', ..., { external_id })."
+        },
+        {
+          "rule": "DNT-07",
+          "tier": "boundary",
+          "probe": "Global Privacy Control checked inside a combined condition",
+          "evidence": "navigator.globalPrivacyControl !== true is part of the condition that gates loading the Meta Pixel."
+        }
+      ]
+    },
+    {
+      "id": "A1",
+      "file": "public/js/analytics.js",
+      "start": "function initAnalytics() {",
+      "end": "=    }",
+      "positives": [
+        {
+          "rule": "DNT-07",
+          "tier": "direct",
+          "probe": "mirrors the rule's positive example (navigator/window.doNotTrack gates gtag)",
+          "evidence": "Reads navigator.doNotTrack / window.doNotTrack and only loads and configures Google Analytics when DNT is off."
+        },
+        {
+          "rule": "TP-02",
+          "tier": "direct",
+          "probe": "analytics SDK initialized with a user identifier",
+          "evidence": "Loads gtag.js from googletagmanager.com and calls gtag('config', ..., { user_id: user.id })."
+        }
+      ],
+      "optional": [
+        { "rule": "UC-03", "why": "DNT is a user preference signal; the catalog lists UC-03 as related to DNT-07, but the UC-03 text never mentions browser signals." }
+      ]
+    },
+    {
+      "id": "A2",
+      "file": "public/js/analytics.js",
+      "start": "function initErrorReporting() {",
+      "end": "=    }",
+      "positives": [
+        {
+          "rule": "TP-02",
+          "tier": "direct",
+          "probe": "crash-reporting SDK passed id and email",
+          "evidence": "Sentry.setUser sends the user's id and email to Sentry, an external crash-reporting service."
+        }
+      ],
+      "negatives": [
+        {
+          "rule": "DNT-07",
+          "tier": "direct",
+          "probe": "dead read: DNT only becomes a Sentry tag and gates nothing (mirrors the rule's negative example)"
+        }
+      ]
+    },
+    {
+      "id": "A3",
+      "file": "public/js/analytics.js",
+      "start": "function telemetrySession() {",
+      "end": ["navigator.sendBeacon(", "=    }"],
+      "positives": [
+        {
+          "rule": "DNT-07",
+          "tier": "boundary",
+          "probe": "early-return DNT guard in front of first-party telemetry",
+          "evidence": "trackScreen returns early when navigator.doNotTrack === '1', so no screen-view beacon is sent."
+        },
+        {
+          "rule": "FP-01",
+          "tier": "boundary",
+          "probe": "behavioral events collected by the first party",
+          "evidence": "Generates a telemetry session id and beacons the screen name, session id and user id to the app's own /api/telemetry endpoint."
+        }
+      ],
+      "optional": [
+        { "rule": "UC-03", "why": "DNT is a user preference signal; the catalog lists UC-03 as related to DNT-07." }
+      ],
+      "negatives": [
+        {
+          "rule": "TP-02",
+          "tier": "boundary",
+          "probe": "sendBeacon (a common third-party tracking primitive) aimed at a relative, first-party URL"
+        }
+      ]
+    },
+    {
+      "id": "R1",
+      "file": "public/js/recorder.js",
+      "start": "async function startRecording() {",
+      "end": "=    }",
+      "positives": [
+        {
+          "rule": "UC-03",
+          "tier": "direct",
+          "probe": "device permission checked before sensor collection",
+          "evidence": "navigator.permissions.query({ name: 'geolocation' }) is checked and recording stops if the state is 'denied'."
+        },
+        {
+          "rule": "FP-01",
+          "tier": "direct",
+          "probe": "GPS sensor read",
+          "evidence": "navigator.geolocation.watchPosition records latitude, longitude, altitude and timestamp into points."
+        }
+      ]
+    },
+    {
+      "id": "R2",
+      "file": "public/js/recorder.js",
+      "start": "async function pairStrap() {",
+      "end": "=    }",
+      "positives": [
+        {
+          "rule": "FP-01",
+          "tier": "boundary",
+          "probe": "biometric sensor via Web Bluetooth GATT, using numeric service/characteristic UUIDs",
+          "evidence": "Connects to a Bluetooth heart-rate strap (service 0x180d, characteristic 0x2a37) and records each bpm reading into pulses."
+        }
+      ],
+      "optional": [
+        { "rule": "UC-03", "why": "requestDevice shows a browser device chooser, which can be read as a device-level permission request." }
+      ]
+    },
+    {
+      "id": "AP1",
+      "file": "server/app.js",
+      "start": "=app.use(",
+      "end": "=);",
+      "positives": [
+        {
+          "rule": "DR-05",
+          "tier": "direct",
+          "probe": "session store TTL and cookie maxAge",
+          "evidence": "RedisStore ttl and cookie.maxAge both expire sessions after 14 days."
+        },
+        {
+          "rule": "DS-06",
+          "tier": "direct",
+          "probe": "HTTPS-only, httpOnly session cookie",
+          "evidence": "The session cookie is configured with secure: true, httpOnly: true and sameSite: 'lax'."
+        }
+      ]
+    },
+    {
+      "id": "AU1",
+      "file": "server/middleware/audience.js",
+      "start": "function syncConversions(req, res, next) {",
+      "end": "=}",
+      "positives": [
+        {
+          "rule": "DNT-07",
+          "tier": "boundary",
+          "probe": "server-side Sec-GPC header gating ad-conversion sharing",
+          "evidence": "Reads the Sec-GPC request header and skips the conversion upload when it is '1'."
+        },
+        {
+          "rule": "TP-02",
+          "tier": "boundary",
+          "probe": "server-side ad conversion API built with builder objects",
+          "evidence": "Sends the user id, IP address and User-Agent to Meta's Conversions API via UserData/ServerEvent/EventRequest."
+        }
+      ],
+      "optional": [
+        { "rule": "UC-03", "why": "GPC is a user preference signal; the catalog lists UC-03 as related to DNT-07." }
+      ]
+    },
+    {
+      "id": "AU2",
+      "file": "server/middleware/audience.js",
+      "start": "function requestLog(req, res, next) {",
+      "end": "=}",
+      "negatives": [
+        {
+          "rule": "DNT-07",
+          "tier": "boundary",
+          "probe": "server-side dead read: the DNT header is only written to the request log"
+        }
+      ]
+    },
+    {
+      "id": "AT1",
+      "file": "server/routes/auth.js",
+      "start": "body('email').isEmail()",
+      "end": "bcrypt.hash(password, 12)",
+      "positives": [
+        {
+          "rule": "DS-06",
+          "tier": "direct",
+          "probe": "input validation/escaping plus password hashing (mirrors the rule's bcrypt example)",
+          "evidence": "express-validator checks and escapes the signup fields and rejects invalid input; the password is stored only as a bcrypt hash."
+        }
+      ]
+    },
+    {
+      "id": "AT2",
+      "file": "server/routes/auth.js",
+      "start": "const { email, password, displayName, birthDate } = req.body;",
+      "end": "req.session.userId = userId;",
+      "positives": [
+        {
+          "rule": "FP-01",
+          "tier": "direct",
+          "probe": "form fields read and stored, plus a login event with IP and UA",
+          "evidence": "Reads email, display name and birth date from req.body into users, and records the signup IP and User-Agent in login_events."
+        }
+      ]
+    },
+    {
+      "id": "AT3",
+      "file": "server/routes/auth.js",
+      "start": "INSERT INTO login_events",
+      "end": "=        ]);",
+      "negatives": [
+        {
+          "rule": "DR-05",
+          "tier": "direct",
+          "probe": "plain insert with no TTL or expiry (mirrors the rule's negative example)"
+        }
+      ]
+    },
+    {
+      "id": "AC0",
+      "file": "server/routes/account.js",
+      "start": "router.use('/me', requireAuth);",
+      "optional": [
+        { "rule": "DS-06", "why": "An authentication guard applied here but implemented elsewhere; the rule's UA-04 example treats @login_required as scoping, not a safeguard." }
+      ]
+    },
+    {
+      "id": "AC1",
+      "file": "server/routes/account.js",
+      "start": "router.get('/me', async",
+      "end": "=});",
+      "positives": [
+        {
+          "rule": "UA-04",
+          "tier": "direct",
+          "probe": "self-service read of the user's own record",
+          "evidence": "GET /me returns the users row selected by req.session.userId."
+        }
+      ]
+    },
+    {
+      "id": "AC2",
+      "file": "server/routes/account.js",
+      "start": "router.patch('/me', async",
+      "end": "=});",
+      "positives": [
+        {
+          "rule": "UA-04",
+          "tier": "direct",
+          "probe": "self-service edit of the user's own record",
+          "evidence": "PATCH /me updates display_name, home_region and phone for WHERE id = req.session.userId."
+        },
+        {
+          "rule": "FP-01",
+          "tier": "direct",
+          "probe": "request-body profile fields persisted",
+          "evidence": "Reads displayName, homeRegion and phone from req.body and writes them to the users table."
+        }
+      ]
+    },
+    {
+      "id": "AC3",
+      "file": "server/routes/account.js",
+      "start": "Buffer.from(phone, 'utf8').toString('base64')",
+      "negatives": [
+        {
+          "rule": "DS-06",
+          "tier": "boundary",
+          "probe": "base64 'obfuscation' is encoding, not encryption"
+        }
+      ]
+    },
+    {
+      "id": "AC4",
+      "file": "server/routes/account.js",
+      "start": "router.put('/me/privacy'",
+      "end": "=});",
+      "positives": [
+        {
+          "rule": "UC-03",
+          "tier": "direct",
+          "probe": "endpoint for setting marketing, sharing and visibility preferences",
+          "evidence": "PUT /me/privacy lets the user set marketing_opt_in, partner_sharing and profile_visibility."
+        }
+      ],
+      "optional": [
+        { "rule": "FP-01", "why": "Stores user-supplied data, but the data is only the preference flags UC-03 covers." },
+        { "rule": "UA-04", "why": "An update scoped to the user's own record, but of settings rather than of 'their information'." }
+      ]
+    },
+    {
+      "id": "AC5",
+      "file": "server/routes/account.js",
+      "start": "router.get('/me/export'",
+      "end": "=});",
+      "positives": [
+        {
+          "rule": "UA-04",
+          "tier": "direct",
+          "probe": "'download my data' export",
+          "evidence": "GET /me/export zips the requesting user's profile, activities and comments, each queried by their own id."
+        }
+      ]
+    },
+    {
+      "id": "AC7",
+      "file": "server/routes/account.js",
+      "start": "router.post('/me/api-tokens'",
+      "end": "=});",
+      "optional": [
+        { "rule": "FP-01", "why": "Generates and stores a user-linked credential, which is not personal data in the usual sense." }
+      ],
+      "negatives": [
+        {
+          "rule": "DS-06",
+          "tier": "boundary",
+          "probe": "crypto.randomBytes is present, but the token is stored in plaintext (crypto-looking trap)"
+        }
+      ]
+    },
+    {
+      "id": "AC6",
+      "file": "server/routes/account.js",
+      "start": "router.post('/me/close'",
+      "end": "=});",
+      "positives": [
+        {
+          "rule": "UA-04",
+          "tier": "boundary",
+          "probe": "account closure done as anonymization plus deferred erasure, via POST",
+          "evidence": "POST /me/close blanks the requesting user's email, password hash and phone, and queues erasure of their content."
+        },
+        {
+          "rule": "DR-05",
+          "tier": "boundary",
+          "probe": "retention bound expressed as a delayed queue job",
+          "evidence": "cleanupQueue.add('erase-member-content', ..., { delay: 30 days }) erases the member's content 30 days after closing."
+        }
+      ]
+    },
+    {
+      "id": "AC8",
+      "file": "server/routes/account.js",
+      "start": "router.delete('/admin/members/:id'",
+      "end": "=});",
+      "positives": [
+        {
+          "rule": "DS-06",
+          "tier": "direct",
+          "probe": "role-based authorization guarding a destructive operation",
+          "evidence": "requireRole('support') restricts deleting any member's record to support staff."
+        }
+      ],
+      "negatives": [
+        {
+          "rule": "UA-04",
+          "tier": "direct",
+          "probe": "admin delete of an arbitrary user id (mirrors the rule's negative example)"
+        }
+      ]
+    },
+    {
+      "id": "AV1",
+      "file": "server/routes/activities.js",
+      "start": "const MAX_UPLOAD_SIZE_MB = 25;",
+      "negatives": [
+        {
+          "rule": "FP-01",
+          "tier": "direct",
+          "probe": "static configuration constant (mirrors the rule's negative example)"
+        }
+      ]
+    },
+    {
+      "id": "AV2",
+      "file": "server/routes/activities.js",
+      "start": "function sealNote(plaintext) {",
+      "end": "=}",
+      "positives": [
+        {
+          "rule": "DS-06",
+          "tier": "boundary",
+          "probe": "encryption from raw primitives (createCipheriv aes-256-gcm) under a non-obvious name",
+          "evidence": "sealNote encrypts activity notes with AES-256-GCM using a random IV and auth tag before they are stored."
+        }
+      ]
+    },
+    {
+      "id": "AV4",
+      "file": "server/routes/activities.js",
+      "start": "async function shareRouteWithPartner(",
+      "end": "=}",
+      "positives": [
+        {
+          "rule": "TP-02",
+          "tier": "boundary",
+          "probe": "raw fetch to an unfamiliar external domain, with a pseudonymous id",
+          "evidence": "POSTs the user's route polyline, start time and a tm-<userId> reference to ingest.routeshare.example."
+        }
+      ],
+      "negatives": [
+        {
+          "rule": "UC-03",
+          "tier": "boundary",
+          "probe": "gated by an operator env flag, not a user choice"
+        }
+      ]
+    },
+    {
+      "id": "AV5",
+      "file": "server/routes/activities.js",
+      "start": "async function refreshReadiness(userId) {",
+      "end": "=}",
+      "positives": [
+        {
+          "rule": "FP-01",
+          "tier": "boundary",
+          "probe": "a per-user score derived and persisted with no request input",
+          "evidence": "Derives a readiness score from the user's recent distance and heart rate and saves it to users.readiness_score."
+        }
+      ],
+      "negatives": [
+        {
+          "rule": "AI-08",
+          "tier": "boundary",
+          "probe": "a hand-written formula, not an ML model"
+        },
+        {
+          "rule": "DR-05",
+          "tier": "boundary",
+          "probe": "a 28-day query window is a filter, not a retention mechanism"
+        }
+      ]
+    },
+    {
+      "id": "AV3",
+      "file": "server/routes/activities.js",
+      "start": "router.post('/activities'",
+      "end": "=});",
+      "positives": [
+        {
+          "rule": "FP-01",
+          "tier": "direct",
+          "probe": "uploaded file with location and heart rate persisted",
+          "evidence": "Parses the uploaded GPX file and stores the route geometry, distance, average heart rate and notes for the user."
+        }
+      ],
+      "optional": [
+        { "rule": "DS-06", "why": "Call site of sealNote (the encryption is implemented in AV2); also carries the requireAuth guard." },
+        { "rule": "TP-02", "why": "Call site of shareRouteWithPartner (the transmission is implemented in AV4)." }
+      ]
+    },
+    {
+      "id": "AV6",
+      "file": "server/routes/activities.js",
+      "start": "router.delete('/activities/:id'",
+      "end": "=});",
+      "positives": [
+        {
+          "rule": "UA-04",
+          "tier": "direct",
+          "probe": "user deletes one of their own records",
+          "evidence": "DELETE /activities/:id removes the activity only when user_id matches the requester."
+        },
+        {
+          "rule": "DS-06",
+          "tier": "boundary",
+          "probe": "object-level authorization folded into the SQL WHERE clause",
+          "evidence": "The AND user_id = $2 ownership condition, with a 404 on no match, stops users from deleting other people's activities."
+        }
+      ]
+    },
+    {
+      "id": "CM1",
+      "file": "server/routes/community.js",
+      "start": "router.post('/trails/:trailId/comments'",
+      "end": "const commentId = rows[0].id;",
+      "positives": [
+        {
+          "rule": "FP-01",
+          "tier": "direct",
+          "probe": "user-generated content stored",
+          "evidence": "Reads the comment text from req.body and inserts it with the author's user id."
+        }
+      ],
+      "optional": [
+        { "rule": "DS-06", "why": "requireAuth guard applied on the route line." }
+      ]
+    },
+    {
+      "id": "CM2",
+      "file": "server/routes/community.js",
+      "start": "const moderation = await openai.moderations.create",
+      "end": "=    }",
+      "positives": [
+        {
+          "rule": "AI-08",
+          "tier": "direct",
+          "probe": "external model output drives an automated action (mirrors the rule's moderation example)",
+          "evidence": "The comment text goes to OpenAI's moderation model, and a flagged result hides the comment with no human review."
+        },
+        {
+          "rule": "TP-02",
+          "tier": "direct",
+          "probe": "user content sent to an external AI provider",
+          "evidence": "openai.moderations.create sends the user's comment text to OpenAI."
+        }
+      ]
+    },
+    {
+      "id": "CM3",
+      "file": "server/routes/community.js",
+      "start": "router.get('/members/:id'",
+      "end": "=});",
+      "positives": [
+        {
+          "rule": "UC-03",
+          "tier": "boundary",
+          "probe": "a user preference controls disclosure to other users, not collection or sharing",
+          "evidence": "profile_visibility === 'private' makes the endpoint return only id and display name to anyone but the member."
+        }
+      ],
+      "optional": [
+        { "rule": "DS-06", "why": "The visibility branch doubles as an access-control check on profile data." }
+      ],
+      "negatives": [
+        {
+          "rule": "UA-04",
+          "tier": "boundary",
+          "probe": "reads an arbitrary member by path id; not scoped to the requester"
+        }
+      ]
+    },
+    {
+      "id": "BL1",
+      "file": "server/routes/billing.js",
+      "start": "let event;",
+      "end": "=    }",
+      "positives": [
+        {
+          "rule": "DS-06",
+          "tier": "boundary",
+          "probe": "inbound webhook signature verification",
+          "evidence": "stripe.webhooks.constructEvent checks the Stripe-Signature against the webhook secret and rejects payloads that fail."
+        }
+      ]
+    },
+    {
+      "id": "BL2",
+      "file": "server/routes/billing.js",
+      "start": "await ledger.append({",
+      "end": "=        });",
+      "optional": [
+        { "rule": "FP-01", "why": "The rule's TP-02 negative example notes this kind of internal save 'may still qualify separately under FP-01'." }
+      ],
+      "negatives": [
+        {
+          "rule": "TP-02",
+          "tier": "direct",
+          "probe": "a call into an internal module (mirrors the rule's internalOrdersService negative example)"
+        }
+      ]
+    },
+    {
+      "id": "ML1",
+      "file": "server/services/mailer.js",
+      "start": "async function sendTrailDigest(",
+      "end": "=}",
+      "positives": [
+        {
+          "rule": "UC-03",
+          "tier": "direct",
+          "probe": "marketing email gated on an opt-in flag (mirrors the rule's positive example)",
+          "evidence": "The digest returns without sending unless member.marketing_opt_in is set."
+        },
+        {
+          "rule": "TP-02",
+          "tier": "direct",
+          "probe": "email provider SDK passed the address and profile fields",
+          "evidence": "sgMail.send passes the member's email, name and home region to SendGrid."
+        }
+      ]
+    },
+    {
+      "id": "ML2",
+      "file": "server/services/mailer.js",
+      "start": "async function sendReceipt(",
+      "end": "=}",
+      "positives": [
+        {
+          "rule": "TP-02",
+          "tier": "direct",
+          "probe": "email provider SDK passed the address and billing details",
+          "evidence": "sgMail.send passes the member's email, name and payment amount to SendGrid."
+        }
+      ],
+      "negatives": [
+        {
+          "rule": "UC-03",
+          "tier": "direct",
+          "probe": "transactional email sent unconditionally (mirrors the rule's negative example)"
+        }
+      ]
+    },
+    {
+      "id": "NJ1",
+      "file": "server/jobs/nightly.js",
+      "start": "cron.schedule('20 3 * * *'",
+      "end": "=});",
+      "positives": [
+        {
+          "rule": "DR-05",
+          "tier": "direct",
+          "probe": "scheduled purge of aged records (mirrors the rule's positive example)",
+          "evidence": "A daily cron job deletes login_events rows older than 90 days."
+        }
+      ]
+    },
+    {
+      "id": "CO1",
+      "file": "worker/coach.py",
+      "start": "def record_feedback(",
+      "end": ["datetime.now(timezone.utc)", "=    )"],
+      "positives": [
+        {
+          "rule": "AI-08",
+          "tier": "direct",
+          "probe": "user data flagged for model training (mirrors the rule's training-data example)",
+          "evidence": "Stores the user's coach transcript and rating with include_in_training=True."
+        }
+      ],
+      "optional": [
+        { "rule": "FP-01", "why": "Persists user content; the rule's own example classifies this only as AI-08." }
+      ]
+    },
+    {
+      "id": "CO2",
+      "file": "worker/coach.py",
+      "start": "def export_sft_batch(",
+      "end": "return out_path",
+      "positives": [
+        {
+          "rule": "AI-08",
+          "tier": "boundary",
+          "probe": "fine-tuning corpus signalled only by 'sft' naming and chat-format JSONL",
+          "evidence": "Appends user coach transcripts as {'messages': ...} JSONL records to the datasets/coach_sft directory."
+        }
+      ]
+    },
+    {
+      "id": "CO3",
+      "file": "worker/coach.py",
+      "start": "def build_training_plan(",
+      "end": "return plan",
+      "positives": [
+        {
+          "rule": "AI-08",
+          "tier": "direct",
+          "probe": "per-user data sent to an LLM API for generation",
+          "evidence": "The member's name, birth date, readiness score and recent activities go into a prompt for client.messages.create."
+        },
+        {
+          "rule": "TP-02",
+          "tier": "direct",
+          "probe": "personal and health data sent to an external AI provider",
+          "evidence": "The Anthropic API call sends the member's name, birth date and heart-rate history outside the first-party boundary."
+        }
+      ],
+      "optional": [
+        { "rule": "FP-01", "why": "The generated plan is derived content about the user and is persisted." }
+      ]
+    },
+    {
+      "id": "CO4",
+      "file": "worker/coach.py",
+      "start": "def weekly_ops_digest(",
+      "end": "requests.post(OPS_WEBHOOK",
+      "negatives": [
+        {
+          "rule": "AI-08",
+          "tier": "direct",
+          "probe": "LLM summarizes platform-wide aggregates only (mirrors the rule's negative example)"
+        },
+        {
+          "rule": "TP-02",
+          "tier": "boundary",
+          "probe": "only aggregate, non-user-linked data goes to the LLM and Slack"
+        }
+      ]
+    },
+    {
+      "id": "RK1",
+      "file": "worker/screening.py",
+      "start": "def screen_signup(",
+      "end": "return score",
+      "positives": [
+        {
+          "rule": "AI-08",
+          "tier": "boundary",
+          "probe": "first-party local model (joblib predict_proba) drives an automated lock",
+          "evidence": "A locally loaded classifier scores the signup and locks the account above 0.85 with no human review."
+        }
+      ],
+      "optional": [
+        { "rule": "FP-01", "why": "A derived risk score about the user is acted on (lock or review)." },
+        { "rule": "TP-02", "why": "mailer.send_template goes to a destination this file doesn't show; the TP-02 text allows a low-confidence flag." }
+      ]
+    },
+    {
+      "id": "SQ1",
+      "file": "db/migrations/0007_location_pings.sql",
+      "start": "CREATE TABLE location_pings (",
+      "end": "=);",
+      "negatives": [
+        {
+          "rule": "FP-01",
+          "tier": "boundary",
+          "probe": "a schema definition for location data is not a collection operation"
+        }
+      ]
+    },
+    {
+      "id": "SQ2",
+      "file": "db/migrations/0007_location_pings.sql",
+      "start": "ENABLE ROW LEVEL SECURITY",
+      "end": "WITH CHECK",
+      "positives": [
+        {
+          "rule": "DS-06",
+          "tier": "boundary",
+          "probe": "access control enforced in the database with row-level security",
+          "evidence": "RLS policies limit reading pings to members of the same hike and inserts to the user's own rows."
+        }
+      ]
+    },
+    {
+      "id": "SQ3",
+      "file": "db/migrations/0007_location_pings.sql",
+      "start": "SELECT cron.schedule(",
+      "end": "=);",
+      "positives": [
+        {
+          "rule": "DR-05",
+          "tier": "boundary",
+          "probe": "retention job scheduled inside the database with pg_cron",
+          "evidence": "pg_cron deletes location_pings older than 72 hours every 30 minutes."
+        }
+      ]
+    },
+    {
+      "id": "NG1",
+      "file": "deploy/nginx.conf",
+      "start": "listen 443 ssl;",
+      "end": "Strict-Transport-Security",
+      "positives": [
+        {
+          "rule": "DS-06",
+          "tier": "boundary",
+          "probe": "secure transport configured in a web-server config file",
+          "evidence": "Terminates TLS (TLSv1.2/1.3 with AEAD ciphers) and sets an HSTS header."
+        }
+      ]
+    },
+    {
+      "id": "NG2",
+      "file": "deploy/nginx.conf",
+      "start": "log_format trailmark",
+      "end": "$http_user_agent",
+      "positives": [
+        {
+          "rule": "FP-01",
+          "tier": "boundary",
+          "probe": "collection declared in config: access logs capture IP and User-Agent",
+          "evidence": "The trailmark log_format records each client's $remote_addr and $http_user_agent."
+        }
+      ]
+    },
+    {
+      "id": "NG3",
+      "file": "deploy/nginx.conf",
+      "start": "access_log /var/log/nginx/trailmark.access.log",
+      "optional": [
+        { "rule": "FP-01", "why": "Turns on the logging whose fields are defined in NG2." }
+      ]
+    },
+    {
+      "id": "NG4",
+      "file": "deploy/nginx.conf",
+      "start": "expires 30d;",
+      "negatives": [
+        {
+          "rule": "DR-05",
+          "tier": "boundary",
+          "probe": "browser cache lifetime of static assets, not retention of user data"
+        }
+      ]
+    },
+    {
+      "id": "LR1",
+      "file": "deploy/logrotate/trailmark.conf",
+      "start": "/var/log/trailmark/*.log",
+      "end": "=}",
+      "positives": [
+        {
+          "rule": "DR-05",
+          "tier": "boundary",
+          "probe": "log retention in a logrotate config",
+          "evidence": "Rotates the API and nginx access logs daily, keeping at most 14 (rotate 14, maxage 14)."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Trailmark</title>
+        <link rel="stylesheet" href="/static/css/app.css" />
+        <script src="/static/js/consent.js" defer></script>
+        <script src="/static/js/analytics.js" defer></script>
+        <script src="/static/js/recorder.js" defer></script>
+    </head>
+    <body>
+        <header class="topbar">
+            <a href="/" class="brand">Trailmark</a>
+            <nav>
+                <a href="/trails">Trails</a>
+                <a href="/record">Record</a>
+                <a href="/settings">Settings</a>
+            </nav>
+        </header>
+
+        <main id="app"></main>
+        <p id="recorder-status" class="status" aria-live="polite"></p>
+
+        <section id="cookie-choices" class="banner" hidden>
+            <h2>Your choices</h2>
+            <p>Pick which optional cookies Trailmark may use. You can change this at any time in Settings.</p>
+            <label><input type="checkbox" id="choice-analytics" /> Product analytics</label>
+            <label><input type="checkbox" id="choice-marketing" /> Personalised ads</label>
+            <button type="button" id="choices-save">Save choices</button>
+            <button type="button" id="choices-reject">Reject all</button>
+        </section>
+        <script>
+            function saveChoices(choices) {
+                localStorage.setItem('tm_consent', JSON.stringify({ ...choices, savedAt: Date.now() }));
+                fetch('/api/me/privacy', {
+                    method: 'PUT',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ partnerSharing: choices.marketing }),
+                });
+                document.getElementById('cookie-choices').hidden = true;
+                window.trailmarkConsent.apply(choices);
+            }
+            document.getElementById('choices-save').addEventListener('click', () => {
+                saveChoices({
+                    analytics: document.getElementById('choice-analytics').checked,
+                    marketing: document.getElementById('choice-marketing').checked,
+                });
+            });
+            document.getElementById('choices-reject').addEventListener('click', () => {
+                saveChoices({ analytics: false, marketing: false });
+            });
+        </script>
+
+        <footer class="footer">
+            <a href="/legal/privacy">Privacy</a>
+            <a href="/legal/terms">Terms</a>
+            <span>&copy; Trailmark</span>
+        </footer>
+    </body>
+</html>

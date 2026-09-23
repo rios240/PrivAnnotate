@@ -145,7 +145,11 @@ Each workspace folder gets one `.privannotate/findings.json`:
 
 Notes on living with the file:
 
-* **Commit it** if you want the annotate trail shared. Keys and findings are sorted on
+* **Upgrading from PrivAudit.** An existing `.privaudit/findings.json` is still read when
+  no `.privannotate/findings.json` exists; the next write lands in the new location, after
+  which the old folder can be deleted (Reset Findings Manifest removes both).
+
+* **Commit it** if you want the audit trail shared. Keys and findings are sorted on
   write so it diffs cleanly, and the extension watches the file - a pulled change or a
   hand edit is picked up without a reload.
 * **Fingerprints, not line numbers, are identity.** A fingerprint is a SHA-256 prefix
@@ -193,6 +197,14 @@ Press <kbd>F5</kbd> to launch the Extension Development Host with PrivAnnotate l
 `require('vscode')` and serves the minimal shim in `src/test/stub/vscodeStub.ts`, so the
 same test files run as plain Node tests on a machine or CI runner that cannot download a
 VS Code build.
+
+### Evaluation
+
+`evaluation/` holds a test bed for measuring detection accuracy: *Trailmark*, a small
+multi-language web app whose code implements the eight rules, and a hand-labeled ground
+truth in the same format as `.privannotate/findings.json`. It also has a scorer that reports
+precision and recall per rule, recall on direct vs. boundary cases, and which hard negatives
+were flagged. See [evaluation/README.md](evaluation/README.md).
 
 ## Known issues and limitations
 
