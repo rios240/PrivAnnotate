@@ -6,7 +6,7 @@ data the code collects, where it sends it, whether the user can control it, how 
 is kept, how it is protected, and whether it feeds an AI/ML model.
 
 Findings are surfaced as inline editor decorations, triaged with an accept/reject
-decision, and stored in a workspace manifest (`.privannotate/findings.json`) so the audit
+decision, and stored in a workspace manifest (`.privannotate/findings.json`) so the annotate
 trail survives restarts, edits, and code review.
 
 The goal is to produce a code-level record of privacy
