@@ -1,0 +1,1091 @@
+{
+  "version": 1,
+  "files": {
+    "db/migrations/0007_location_pings.sql": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "94784f1e312d9936",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 15,
+            "end": 28
+          },
+          "excerpt": "ALTER TABLE location_pings ENABLE ROW LEVEL SECURITY;\n\nCREATE POLICY location_pings_same_hike ON location_pings\n    FOR SELECT\n    USING (\n        hike_id IN (\n            SELECT hike_id FROM group_hike_members\n            WHERE user_id = current_setting('app.current_user_id')::bigint\n        )\n    );\n\nCREATE POLICY location_pings_own_insert ON location_pings\n    FOR INSERT\n    WITH CHECK (user_id = current_setting('app.current_user_id')::bigint);",
+          "evidence": "RLS policies limit reading pings to members of the same hike and inserts to the user's own rows.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth SQ2 (DS-06, boundary): access control enforced in the database with row-level security"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "f5d1b9b4d38afa84",
+          "category": "DATA_RETENTION",
+          "lineRange": {
+            "start": 30,
+            "end": 34
+          },
+          "excerpt": "SELECT cron.schedule(\n    'location-pings-expiry',\n    '*/30 * * * *',\n    $$DELETE FROM location_pings WHERE recorded_at < now() - interval '72 hours'$$\n);",
+          "evidence": "pg_cron deletes location_pings older than 72 hours every 30 minutes.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth SQ3 (DR-05, boundary): retention job scheduled inside the database with pg_cron"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "deploy/logrotate/trailmark.conf": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "ec21d6e3ecf9a29c",
+          "category": "DATA_RETENTION",
+          "lineRange": {
+            "start": 1,
+            "end": 15
+          },
+          "excerpt": "/var/log/trailmark/*.log /var/log/nginx/trailmark.access.log {\n    daily\n    rotate 14\n    maxage 14\n    missingok\n    notifempty\n    compress\n    delaycompress\n    dateext\n    sharedscripts\n    postrotate\n        [ -s /run/nginx.pid ] && kill -USR1 \"$(cat /run/nginx.pid)\"\n        systemctl kill -s HUP trailmark-api.service >/dev/null 2>&1 || true\n    endscript\n}",
+          "evidence": "Rotates the API and nginx access logs daily, keeping at most 14 (rotate 14, maxage 14).",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth LR1 (DR-05, boundary): log retention in a logrotate config"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "deploy/nginx.conf": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "3f8923510ed08426",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 6,
+            "end": 7
+          },
+          "excerpt": "log_format trailmark '$remote_addr - $remote_user [$time_local] \"$request\" '\n                     '$status $body_bytes_sent \"$http_referer\" \"$http_user_agent\" $request_time';",
+          "evidence": "The trailmark log_format records each client's $remote_addr and $http_user_agent.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth NG2 (FP-01, boundary): collection declared in config: access logs capture IP and User-Agent"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "ba79076655241252",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 10,
+            "end": 19
+          },
+          "excerpt": "    listen 443 ssl;\n    http2 on;\n    server_name trailmark.example www.trailmark.example;\n\n    ssl_certificate     /etc/letsencrypt/live/trailmark.example/fullchain.pem;\n    ssl_certificate_key /etc/letsencrypt/live/trailmark.example/privkey.pem;\n    ssl_protocols       TLSv1.2 TLSv1.3;\n    ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;\n    ssl_prefer_server_ciphers off;\n    add_header Strict-Transport-Security \"max-age=63072000; includeSubDomains\" always;",
+          "evidence": "Terminates TLS (TLSv1.2/1.3 with AEAD ciphers) and sets an HSTS header.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth NG1 (DS-06, boundary): secure transport configured in a web-server config file"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "public/index.html": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "7dd6161c6f4ae756",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 25,
+            "end": 53
+          },
+          "excerpt": "        <section id=\"cookie-choices\" class=\"banner\" hidden>\n            <h2>Your choices</h2>\n            <p>Pick which optional cookies Trailmark may use. You can change this at any time in Settings.</p>\n            <label><input type=\"checkbox\" id=\"choice-analytics\" /> Product analytics</label>\n            <label><input type=\"checkbox\" id=\"choice-marketing\" /> Personalised ads</label>\n            <button type=\"button\" id=\"choices-save\">Save choices</button>\n            <button type=\"button\" id=\"choices-reject\">Reject all</button>\n        </section>\n        <script>\n            function saveChoices(choices) {\n                localStorage.setItem('tm_consent', JSON.stringify({ ...choices, savedAt: Date.now() }));\n                fetch('/api/me/privacy', {\n                    method: 'PUT',\n                    headers: { 'content-type': 'application/json' },\n                    body: JSON.stringify({ partnerSharing: choices.marketing }),\n...",
+          "evidence": "The cookie-choices banner lets the user pick analytics/marketing consent; saveChoices stores the choice in localStorage and PUTs partnerSharing to /api/me/privacy.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth H1 (UC-03, boundary): consent UI written as HTML markup plus an inline script"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "public/js/analytics.js": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "a500b4158baf0ebf",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 6,
+            "end": 20
+          },
+          "excerpt": "    function initAnalytics() {\n        const dnt = navigator.doNotTrack === '1' || window.doNotTrack === '1';\n        if (!dnt) {\n            const tag = document.createElement('script');\n            tag.async = true;\n            tag.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;\n            document.head.appendChild(tag);\n            window.dataLayer = window.dataLayer || [];\n            window.gtag = function () {\n                window.dataLayer.push(arguments);\n            };\n            window.gtag('js', new Date());\n            window.gtag('config', GA_MEASUREMENT_ID, { user_id: user.id });\n        }\n    }",
+          "evidence": "Loads gtag.js from googletagmanager.com and calls gtag('config', ..., { user_id: user.id }).",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth A1 (TP-02, direct): analytics SDK initialized with a user identifier"
+          ],
+          "crossReferences": [
+            "DO_NOT_TRACK"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "f185c436775143c5",
+          "category": "DO_NOT_TRACK",
+          "lineRange": {
+            "start": 6,
+            "end": 20
+          },
+          "excerpt": "    function initAnalytics() {\n        const dnt = navigator.doNotTrack === '1' || window.doNotTrack === '1';\n        if (!dnt) {\n            const tag = document.createElement('script');\n            tag.async = true;\n            tag.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;\n            document.head.appendChild(tag);\n            window.dataLayer = window.dataLayer || [];\n            window.gtag = function () {\n                window.dataLayer.push(arguments);\n            };\n            window.gtag('js', new Date());\n            window.gtag('config', GA_MEASUREMENT_ID, { user_id: user.id });\n        }\n    }",
+          "evidence": "Reads navigator.doNotTrack / window.doNotTrack and only loads and configures Google Analytics when DNT is off.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth A1 (DNT-07, direct): mirrors the rule's positive example (navigator/window.doNotTrack gates gtag)"
+          ],
+          "crossReferences": [
+            "THIRD_PARTY_SHARING_COLLECTION"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "07288c6259e998b6",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 22,
+            "end": 29
+          },
+          "excerpt": "    function initErrorReporting() {\n        const dnt = navigator.doNotTrack === '1';\n        window.Sentry.init({ dsn: SENTRY_DSN, release: window.TRAILMARK_RELEASE, tracesSampleRate: 0.2 });\n        window.Sentry.setTag('dnt', dnt ? 'on' : 'off');\n        if (user.id) {\n            window.Sentry.setUser({ id: user.id, email: user.email });\n        }\n    }",
+          "evidence": "Sentry.setUser sends the user's id and email to Sentry, an external crash-reporting service.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth A2 (TP-02, direct): crash-reporting SDK passed id and email"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "811c26f0153fe3d8",
+          "category": "DO_NOT_TRACK",
+          "lineRange": {
+            "start": 31,
+            "end": 48
+          },
+          "excerpt": "    function telemetrySession() {\n        let id = sessionStorage.getItem('tm_tsid');\n        if (!id) {\n            id = crypto.randomUUID();\n            sessionStorage.setItem('tm_tsid', id);\n        }\n        return id;\n    }\n\n    function trackScreen(name) {\n        if (navigator.doNotTrack === '1') {\n            return;\n        }\n        navigator.sendBeacon(\n            '/api/telemetry',\n...",
+          "evidence": "trackScreen returns early when navigator.doNotTrack === '1', so no screen-view beacon is sent.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth A3 (DNT-07, boundary): early-return DNT guard in front of first-party telemetry"
+          ],
+          "crossReferences": [
+            "FIRST_PARTY_COLLECTION_USE"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "9cf6254b0fee0e8e",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 31,
+            "end": 48
+          },
+          "excerpt": "    function telemetrySession() {\n        let id = sessionStorage.getItem('tm_tsid');\n        if (!id) {\n            id = crypto.randomUUID();\n            sessionStorage.setItem('tm_tsid', id);\n        }\n        return id;\n    }\n\n    function trackScreen(name) {\n        if (navigator.doNotTrack === '1') {\n            return;\n        }\n        navigator.sendBeacon(\n            '/api/telemetry',\n...",
+          "evidence": "Generates a telemetry session id and beacons the screen name, session id and user id to the app's own /api/telemetry endpoint.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth A3 (FP-01, boundary): behavioral events collected by the first party"
+          ],
+          "crossReferences": [
+            "DO_NOT_TRACK"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "public/js/consent.js": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "2d7328271fcb509e",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 24,
+            "end": 42
+          },
+          "excerpt": "    function apply(choices) {\n        const user = window.TRAILMARK_USER || {};\n        if (!choices) {\n            document.getElementById('cookie-choices').hidden = false;\n            return;\n        }\n        if (choices.analytics) {\n            loadScript(`https://cdn.segment.com/analytics.js/v1/${SEGMENT_WRITE_KEY}/analytics.min.js`).then(() => {\n                window.analytics.identify(user.id, { plan: user.plan, region: user.homeRegion });\n                window.analytics.page();\n            });\n        }\n        if (choices.marketing && navigator.globalPrivacyControl !== true) {\n            loadScript('https://connect.facebook.net/en_US/fbevents.js').then(() => {\n                window.fbq('init', META_PIXEL_ID, { external_id: user.id });\n...",
+          "evidence": "choices.analytics gates loading Segment and choices.marketing gates loading the Meta Pixel, so both SDKs only run with the user's consent.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth C1 (UC-03, direct): consent flags gate loading tracking SDKs"
+          ],
+          "crossReferences": [
+            "THIRD_PARTY_SHARING_COLLECTION",
+            "DO_NOT_TRACK"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "49612d399f201e8f",
+          "category": "DO_NOT_TRACK",
+          "lineRange": {
+            "start": 24,
+            "end": 42
+          },
+          "excerpt": "    function apply(choices) {\n        const user = window.TRAILMARK_USER || {};\n        if (!choices) {\n            document.getElementById('cookie-choices').hidden = false;\n            return;\n        }\n        if (choices.analytics) {\n            loadScript(`https://cdn.segment.com/analytics.js/v1/${SEGMENT_WRITE_KEY}/analytics.min.js`).then(() => {\n                window.analytics.identify(user.id, { plan: user.plan, region: user.homeRegion });\n                window.analytics.page();\n            });\n        }\n        if (choices.marketing && navigator.globalPrivacyControl !== true) {\n            loadScript('https://connect.facebook.net/en_US/fbevents.js').then(() => {\n                window.fbq('init', META_PIXEL_ID, { external_id: user.id });\n...",
+          "evidence": "navigator.globalPrivacyControl !== true is part of the condition that gates loading the Meta Pixel.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth C1 (DNT-07, boundary): Global Privacy Control checked inside a combined condition"
+          ],
+          "crossReferences": [
+            "USER_CHOICE_CONTROL",
+            "THIRD_PARTY_SHARING_COLLECTION"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "7debe924c595912b",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 24,
+            "end": 42
+          },
+          "excerpt": "    function apply(choices) {\n        const user = window.TRAILMARK_USER || {};\n        if (!choices) {\n            document.getElementById('cookie-choices').hidden = false;\n            return;\n        }\n        if (choices.analytics) {\n            loadScript(`https://cdn.segment.com/analytics.js/v1/${SEGMENT_WRITE_KEY}/analytics.min.js`).then(() => {\n                window.analytics.identify(user.id, { plan: user.plan, region: user.homeRegion });\n                window.analytics.page();\n            });\n        }\n        if (choices.marketing && navigator.globalPrivacyControl !== true) {\n            loadScript('https://connect.facebook.net/en_US/fbevents.js').then(() => {\n                window.fbq('init', META_PIXEL_ID, { external_id: user.id });\n...",
+          "evidence": "Loads Segment and the Meta Pixel from their CDNs and passes user.id to analytics.identify and fbq('init', ..., { external_id }).",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth C1 (TP-02, boundary): third-party SDKs loaded by script injection, then passed the user id"
+          ],
+          "crossReferences": [
+            "USER_CHOICE_CONTROL",
+            "DO_NOT_TRACK"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "public/js/recorder.js": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "002ef8e36c288c79",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 6,
+            "end": 25
+          },
+          "excerpt": "    async function startRecording() {\n        const permission = await navigator.permissions.query({ name: 'geolocation' });\n        if (permission.state === 'denied') {\n            showStatus('Location is off for Trailmark. Turn it on in your browser settings to record a route.');\n            return false;\n        }\n        watchId = navigator.geolocation.watchPosition(\n            pos => {\n                points.push({\n                    lat: pos.coords.latitude,\n                    lon: pos.coords.longitude,\n                    ele: pos.coords.altitude,\n                    t: pos.timestamp,\n                });\n            },\n...",
+          "evidence": "navigator.permissions.query({ name: 'geolocation' }) is checked and recording stops if the state is 'denied'.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth R1 (UC-03, direct): device permission checked before sensor collection"
+          ],
+          "crossReferences": [
+            "FIRST_PARTY_COLLECTION_USE"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "10ed1a5dd01cf126",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 6,
+            "end": 25
+          },
+          "excerpt": "    async function startRecording() {\n        const permission = await navigator.permissions.query({ name: 'geolocation' });\n        if (permission.state === 'denied') {\n            showStatus('Location is off for Trailmark. Turn it on in your browser settings to record a route.');\n            return false;\n        }\n        watchId = navigator.geolocation.watchPosition(\n            pos => {\n                points.push({\n                    lat: pos.coords.latitude,\n                    lon: pos.coords.longitude,\n                    ele: pos.coords.altitude,\n                    t: pos.timestamp,\n                });\n            },\n...",
+          "evidence": "navigator.geolocation.watchPosition records latitude, longitude, altitude and timestamp into points.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth R1 (FP-01, direct): GPS sensor read"
+          ],
+          "crossReferences": [
+            "USER_CHOICE_CONTROL"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "fc1a4549a2d15c55",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 27,
+            "end": 39
+          },
+          "excerpt": "    async function pairStrap() {\n        const strap = await navigator.bluetooth.requestDevice({ filters: [{ services: [0x180d] }] });\n        const gatt = await strap.gatt.connect();\n        const service = await gatt.getPrimaryService(0x180d);\n        const channel = await service.getCharacteristic(0x2a37);\n        await channel.startNotifications();\n        channel.addEventListener('characteristicvaluechanged', event => {\n            const data = event.target.value;\n            const bpm = data.getUint8(0) & 0x1 ? data.getUint16(1, true) : data.getUint8(1);\n            pulses.push({ bpm, t: Date.now() });\n        });\n        return strap.name;\n    }",
+          "evidence": "Connects to a Bluetooth heart-rate strap (service 0x180d, characteristic 0x2a37) and records each bpm reading into pulses.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth R2 (FP-01, boundary): biometric sensor via Web Bluetooth GATT, using numeric service/characteristic UUIDs"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "server/app.js": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "466a7a2a8788e7f3",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 24,
+            "end": 38
+          },
+          "excerpt": "app.use(\n    session({\n        store: new RedisStore({ client: redis, prefix: 'tm:sess:', ttl: 60 * 60 * 24 * 14 }),\n        secret: process.env.SESSION_SECRET,\n        name: 'tm.sid',\n        resave: false,\n        saveUninitialized: false,\n        cookie: {\n            secure: true,\n            httpOnly: true,\n            sameSite: 'lax',\n            maxAge: 1000 * 60 * 60 * 24 * 14,\n        },\n    })\n);",
+          "evidence": "The session cookie is configured with secure: true, httpOnly: true and sameSite: 'lax'.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AP1 (DS-06, direct): HTTPS-only, httpOnly session cookie"
+          ],
+          "crossReferences": [
+            "DATA_RETENTION"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "6e62dcd521546175",
+          "category": "DATA_RETENTION",
+          "lineRange": {
+            "start": 24,
+            "end": 38
+          },
+          "excerpt": "app.use(\n    session({\n        store: new RedisStore({ client: redis, prefix: 'tm:sess:', ttl: 60 * 60 * 24 * 14 }),\n        secret: process.env.SESSION_SECRET,\n        name: 'tm.sid',\n        resave: false,\n        saveUninitialized: false,\n        cookie: {\n            secure: true,\n            httpOnly: true,\n            sameSite: 'lax',\n            maxAge: 1000 * 60 * 60 * 24 * 14,\n        },\n    })\n);",
+          "evidence": "RedisStore ttl and cookie.maxAge both expire sessions after 14 days.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AP1 (DR-05, direct): session store TTL and cookie maxAge"
+          ],
+          "crossReferences": [
+            "DATA_SECURITY"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "server/jobs/nightly.js": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "85148d2e8ce18fa2",
+          "category": "DATA_RETENTION",
+          "lineRange": {
+            "start": 5,
+            "end": 8
+          },
+          "excerpt": "cron.schedule('20 3 * * *', async () => {\n    const { rowCount } = await db.query(\"DELETE FROM login_events WHERE created_at < now() - interval '90 days'\");\n    logger.info({ rowCount }, 'login_events pruned');\n});",
+          "evidence": "A daily cron job deletes login_events rows older than 90 days.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth NJ1 (DR-05, direct): scheduled purge of aged records (mirrors the rule's positive example)"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "server/middleware/audience.js": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "0c6fdd6ab8a6aea0",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 22,
+            "end": 41
+          },
+          "excerpt": "function syncConversions(req, res, next) {\n    const eventName = CONVERSION_EVENTS[req.path];\n    const gpcOptOut = req.get('Sec-GPC') === '1';\n    if (eventName && req.method === 'POST' && req.session?.userId && !gpcOptOut) {\n        const userData = new UserData()\n            .setExternalId(String(req.session.userId))\n            .setClientIpAddress(req.ip)\n            .setClientUserAgent(req.get('User-Agent'));\n        const event = new ServerEvent()\n            .setEventName(eventName)\n            .setEventTime(Math.floor(Date.now() / 1000))\n            .setUserData(userData)\n            .setActionSource('website');\n        new EventRequest(process.env.META_CAPI_TOKEN, PIXEL_ID)\n            .setEvents([event])\n...",
+          "evidence": "Sends the user id, IP address and User-Agent to Meta's Conversions API via UserData/ServerEvent/EventRequest.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AU1 (TP-02, boundary): server-side ad conversion API built with builder objects"
+          ],
+          "crossReferences": [
+            "DO_NOT_TRACK"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "153c6d823dd58ce6",
+          "category": "DO_NOT_TRACK",
+          "lineRange": {
+            "start": 22,
+            "end": 41
+          },
+          "excerpt": "function syncConversions(req, res, next) {\n    const eventName = CONVERSION_EVENTS[req.path];\n    const gpcOptOut = req.get('Sec-GPC') === '1';\n    if (eventName && req.method === 'POST' && req.session?.userId && !gpcOptOut) {\n        const userData = new UserData()\n            .setExternalId(String(req.session.userId))\n            .setClientIpAddress(req.ip)\n            .setClientUserAgent(req.get('User-Agent'));\n        const event = new ServerEvent()\n            .setEventName(eventName)\n            .setEventTime(Math.floor(Date.now() / 1000))\n            .setUserData(userData)\n            .setActionSource('website');\n        new EventRequest(process.env.META_CAPI_TOKEN, PIXEL_ID)\n            .setEvents([event])\n...",
+          "evidence": "Reads the Sec-GPC request header and skips the conversion upload when it is '1'.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AU1 (DNT-07, boundary): server-side Sec-GPC header gating ad-conversion sharing"
+          ],
+          "crossReferences": [
+            "THIRD_PARTY_SHARING_COLLECTION"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "server/routes/account.js": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "fac6d809b198c8c6",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 14,
+            "end": 22
+          },
+          "excerpt": "router.get('/me', async (req, res) => {\n    const { rows } = await db.query(\n        `SELECT id, email, display_name, birth_date, home_region, phone_obf,\n                marketing_opt_in, partner_sharing, profile_visibility, created_at\n         FROM users WHERE id = $1`,\n        [req.session.userId]\n    );\n    res.json(rows[0]);\n});",
+          "evidence": "GET /me returns the users row selected by req.session.userId.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AC1 (UA-04, direct): self-service read of the user's own record"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "4d3db3a15db019d0",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 24,
+            "end": 36
+          },
+          "excerpt": "router.patch('/me', async (req, res) => {\n    const { displayName, homeRegion, phone } = req.body;\n    const phoneObf = phone ? Buffer.from(phone, 'utf8').toString('base64') : null;\n    await db.query(\n        `UPDATE users\n         SET display_name = COALESCE($1, display_name),\n             home_region = COALESCE($2, home_region),\n             phone_obf = COALESCE($3, phone_obf)\n         WHERE id = $4`,\n        [displayName, homeRegion, phoneObf, req.session.userId]\n    );\n    res.status(204).end();\n});",
+          "evidence": "PATCH /me updates display_name, home_region and phone for WHERE id = req.session.userId.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AC2 (UA-04, direct): self-service edit of the user's own record"
+          ],
+          "crossReferences": [
+            "FIRST_PARTY_COLLECTION_USE"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "7e9f2a51b79e3340",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 24,
+            "end": 36
+          },
+          "excerpt": "router.patch('/me', async (req, res) => {\n    const { displayName, homeRegion, phone } = req.body;\n    const phoneObf = phone ? Buffer.from(phone, 'utf8').toString('base64') : null;\n    await db.query(\n        `UPDATE users\n         SET display_name = COALESCE($1, display_name),\n             home_region = COALESCE($2, home_region),\n             phone_obf = COALESCE($3, phone_obf)\n         WHERE id = $4`,\n        [displayName, homeRegion, phoneObf, req.session.userId]\n    );\n    res.status(204).end();\n});",
+          "evidence": "Reads displayName, homeRegion and phone from req.body and writes them to the users table.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AC2 (FP-01, direct): request-body profile fields persisted"
+          ],
+          "crossReferences": [
+            "USER_ACCESS_EDIT_DELETION"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "7e8a646adbfe8edf",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 38,
+            "end": 49
+          },
+          "excerpt": "router.put('/me/privacy', async (req, res) => {\n    const { marketingEmails, partnerSharing, profileVisibility } = req.body;\n    await db.query(\n        `UPDATE users\n         SET marketing_opt_in = COALESCE($1, marketing_opt_in),\n             partner_sharing = COALESCE($2, partner_sharing),\n             profile_visibility = COALESCE($3, profile_visibility)\n         WHERE id = $4`,\n        [marketingEmails, partnerSharing, profileVisibility, req.session.userId]\n    );\n    res.status(204).end();\n});",
+          "evidence": "PUT /me/privacy lets the user set marketing_opt_in, partner_sharing and profile_visibility.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AC4 (UC-03, direct): endpoint for setting marketing, sharing and visibility preferences"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "123e402198bc6228",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 51,
+            "end": 75
+          },
+          "excerpt": "router.get('/me/export', async (req, res) => {\n    const userId = req.session.userId;\n    const [profile, activities, comments] = await Promise.all([\n        db.query(\n            `SELECT id, email, display_name, birth_date, home_region, created_at,\n                    marketing_opt_in, partner_sharing, profile_visibility\n             FROM users WHERE id = $1`,\n            [userId]\n        ),\n        db.query(\n            `SELECT id, started_at, distance_m, avg_heart_rate, ST_AsGeoJSON(route) AS route\n             FROM activities WHERE user_id = $1 ORDER BY started_at`,\n            [userId]\n        ),\n        db.query('SELECT id, trail_id, body, status, created_at FROM comments WHERE author_id = $1', [userId]),\n...",
+          "evidence": "GET /me/export zips the requesting user's profile, activities and comments, each queried by their own id.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AC5 (UA-04, direct): 'download my data' export"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "7f51aeec6a810c5c",
+          "category": "DATA_RETENTION",
+          "lineRange": {
+            "start": 87,
+            "end": 102
+          },
+          "excerpt": "router.post('/me/close', async (req, res) => {\n    const userId = req.session.userId;\n    await db.query(\n        `UPDATE users\n         SET email = NULL, password_hash = NULL, phone_obf = NULL,\n             display_name = 'Former member', closed_at = now()\n         WHERE id = $1`,\n        [userId]\n    );\n    await cleanupQueue.add(\n        'erase-member-content',\n        { userId },\n        { delay: 30 * 24 * 60 * 60 * 1000, jobId: `erase-${userId}` }\n    );\n    req.session.destroy(() => res.status(202).json({ status: 'closing' }));\n...",
+          "evidence": "cleanupQueue.add('erase-member-content', ..., { delay: 30 days }) erases the member's content 30 days after closing.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AC6 (DR-05, boundary): retention bound expressed as a delayed queue job"
+          ],
+          "crossReferences": [
+            "USER_ACCESS_EDIT_DELETION"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "e3996381a3d024c2",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 87,
+            "end": 102
+          },
+          "excerpt": "router.post('/me/close', async (req, res) => {\n    const userId = req.session.userId;\n    await db.query(\n        `UPDATE users\n         SET email = NULL, password_hash = NULL, phone_obf = NULL,\n             display_name = 'Former member', closed_at = now()\n         WHERE id = $1`,\n        [userId]\n    );\n    await cleanupQueue.add(\n        'erase-member-content',\n        { userId },\n        { delay: 30 * 24 * 60 * 60 * 1000, jobId: `erase-${userId}` }\n    );\n    req.session.destroy(() => res.status(202).json({ status: 'closing' }));\n...",
+          "evidence": "POST /me/close blanks the requesting user's email, password hash and phone, and queues erasure of their content.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AC6 (UA-04, boundary): account closure done as anonymization plus deferred erasure, via POST"
+          ],
+          "crossReferences": [
+            "DATA_RETENTION"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "5435680f8aa84680",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 104,
+            "end": 107
+          },
+          "excerpt": "router.delete('/admin/members/:id', requireRole('support'), async (req, res) => {\n    await db.query('DELETE FROM users WHERE id = $1', [req.params.id]);\n    res.status(204).end();\n});",
+          "evidence": "requireRole('support') restricts deleting any member's record to support staff.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AC8 (DS-06, direct): role-based authorization guarding a destructive operation"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "server/routes/activities.js": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "2737d1417f68ff6a",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 16,
+            "end": 22
+          },
+          "excerpt": "function sealNote(plaintext) {\n    const key = Buffer.from(process.env.NOTES_KEY_B64, 'base64');\n    const iv = crypto.randomBytes(12);\n    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);\n    const body = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);\n    return Buffer.concat([iv, cipher.getAuthTag(), body]).toString('base64');\n}",
+          "evidence": "sealNote encrypts activity notes with AES-256-GCM using a random IV and auth tag before they are stored.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AV2 (DS-06, boundary): encryption from raw primitives (createCipheriv aes-256-gcm) under a non-obvious name"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "b37af5a6370e71fe",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 24,
+            "end": 38
+          },
+          "excerpt": "async function shareRouteWithPartner(userId, activityId, track) {\n    if (process.env.ROUTESHARE_ENABLED !== 'true') {\n        return;\n    }\n    await fetch('https://ingest.routeshare.example/v2/tracks', {\n        method: 'POST',\n        headers: { 'content-type': 'application/json', 'x-api-key': process.env.ROUTESHARE_KEY },\n        body: JSON.stringify({\n            athleteRef: `tm-${userId}`,\n            activityRef: activityId,\n            startedAt: track.startedAt,\n            polyline: track.lineString.coordinates,\n        }),\n    });\n}",
+          "evidence": "POSTs the user's route polyline, start time and a tm-<userId> reference to ingest.routeshare.example.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AV4 (TP-02, boundary): raw fetch to an unfamiliar external domain, with a pseudonymous id"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "0db5d51f865a9fcb",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 40,
+            "end": 49
+          },
+          "excerpt": "async function refreshReadiness(userId) {\n    const { rows } = await db.query(\n        `SELECT distance_m, avg_heart_rate FROM activities\n         WHERE user_id = $1 AND started_at > now() - interval '28 days'`,\n        [userId]\n    );\n    const load = rows.reduce((sum, a) => sum + (a.distance_m / 1000) * (a.avg_heart_rate / 140), 0);\n    const readiness = Math.max(0, Math.min(100, Math.round(100 - load * 1.5)));\n    await db.query('UPDATE users SET readiness_score = $1 WHERE id = $2', [readiness, userId]);\n}",
+          "evidence": "Derives a readiness score from the user's recent distance and heart rate and saves it to users.readiness_score.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AV5 (FP-01, boundary): a per-user score derived and persisted with no request input"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "e675a6efa92ae9bb",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 51,
+            "end": 68
+          },
+          "excerpt": "router.post('/activities', requireAuth, upload.single('gpx'), async (req, res) => {\n    const track = parseGpx(req.file.buffer);\n    const { rows } = await db.query(\n        `INSERT INTO activities (user_id, started_at, distance_m, avg_heart_rate, route, notes_enc)\n         VALUES ($1, $2, $3, $4, ST_GeomFromGeoJSON($5), $6) RETURNING id`,\n        [\n            req.session.userId,\n            track.startedAt,\n            track.distanceMeters,\n            track.avgHeartRate,\n            JSON.stringify(track.lineString),\n            req.body.notes ? sealNote(req.body.notes) : null,\n        ]\n    );\n    await refreshReadiness(req.session.userId);\n...",
+          "evidence": "Parses the uploaded GPX file and stores the route geometry, distance, average heart rate and notes for the user.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AV3 (FP-01, direct): uploaded file with location and heart rate persisted"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "0b153af850482886",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 70,
+            "end": 79
+          },
+          "excerpt": "router.delete('/activities/:id', requireAuth, async (req, res) => {\n    const result = await db.query('DELETE FROM activities WHERE id = $1 AND user_id = $2', [\n        req.params.id,\n        req.session.userId,\n    ]);\n    if (result.rowCount === 0) {\n        return res.status(404).end();\n    }\n    res.status(204).end();\n});",
+          "evidence": "DELETE /activities/:id removes the activity only when user_id matches the requester.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AV6 (UA-04, direct): user deletes one of their own records"
+          ],
+          "crossReferences": [
+            "DATA_SECURITY"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "f2cc1970d64a297a",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 70,
+            "end": 79
+          },
+          "excerpt": "router.delete('/activities/:id', requireAuth, async (req, res) => {\n    const result = await db.query('DELETE FROM activities WHERE id = $1 AND user_id = $2', [\n        req.params.id,\n        req.session.userId,\n    ]);\n    if (result.rowCount === 0) {\n        return res.status(404).end();\n    }\n    res.status(204).end();\n});",
+          "evidence": "The AND user_id = $2 ownership condition, with a 404 on no match, stops users from deleting other people's activities.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AV6 (DS-06, boundary): object-level authorization folded into the SQL WHERE clause"
+          ],
+          "crossReferences": [
+            "USER_ACCESS_EDIT_DELETION"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "server/routes/auth.js": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "aabef16b3f0c2d96",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 10,
+            "end": 21
+          },
+          "excerpt": "    body('email').isEmail().normalizeEmail(),\n    body('password').isLength({ min: 12, max: 128 }),\n    body('displayName').trim().escape().isLength({ min: 1, max: 40 }),\n    body('birthDate').optional().isISO8601().toDate(),\n    async (req, res) => {\n        const errors = validationResult(req);\n        if (!errors.isEmpty()) {\n            return res.status(400).json({ errors: errors.array() });\n        }\n\n        const { email, password, displayName, birthDate } = req.body;\n        const passwordHash = await bcrypt.hash(password, 12);",
+          "evidence": "express-validator checks and escapes the signup fields and rejects invalid input; the password is stored only as a bcrypt hash.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AT1 (DS-06, direct): input validation/escaping plus password hashing (mirrors the rule's bcrypt example)"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "1547757b87facc56",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 20,
+            "end": 37
+          },
+          "excerpt": "        const { email, password, displayName, birthDate } = req.body;\n        const passwordHash = await bcrypt.hash(password, 12);\n\n        const { rows } = await db.query(\n            `INSERT INTO users (email, password_hash, display_name, birth_date)\n             VALUES ($1, $2, $3, $4) RETURNING id`,\n            [email, passwordHash, displayName, birthDate ?? null]\n        );\n        const userId = rows[0].id;\n\n        await db.query('INSERT INTO login_events (user_id, ip, user_agent, kind) VALUES ($1, $2, $3, $4)', [\n            userId,\n            req.ip,\n            req.get('User-Agent'),\n            'signup',\n...",
+          "evidence": "Reads email, display name and birth date from req.body into users, and records the signup IP and User-Agent in login_events.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth AT2 (FP-01, direct): form fields read and stored, plus a login event with IP and UA"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "server/routes/billing.js": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "d0ff4b8daa76e935",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 10,
+            "end": 19
+          },
+          "excerpt": "    let event;\n    try {\n        event = stripe.webhooks.constructEvent(\n            req.body,\n            req.get('Stripe-Signature'),\n            process.env.STRIPE_WEBHOOK_SECRET\n        );\n    } catch (err) {\n        return res.status(400).send(`Webhook Error: ${err.message}`);\n    }",
+          "evidence": "stripe.webhooks.constructEvent checks the Stripe-Signature against the webhook secret and rejects payloads that fail.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth BL1 (DS-06, boundary): inbound webhook signature verification"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "server/routes/community.js": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "83aa81c6356434a4",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 20,
+            "end": 26
+          },
+          "excerpt": "router.post('/trails/:trailId/comments', requireAuth, async (req, res) => {\n    const text = req.body.text;\n    const { rows } = await db.query(\n        'INSERT INTO comments (trail_id, author_id, body, status) VALUES ($1, $2, $3, $4) RETURNING id',\n        [req.params.trailId, req.session.userId, text, 'visible']\n    );\n    const commentId = rows[0].id;",
+          "evidence": "Reads the comment text from req.body and inserts it with the author's user id.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth CM1 (FP-01, direct): user-generated content stored"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "09c3806edc9d0596",
+          "category": "AI_USAGE",
+          "lineRange": {
+            "start": 28,
+            "end": 33
+          },
+          "excerpt": "    const moderation = await openai.moderations.create({ model: 'omni-moderation-latest', input: text });\n    if (moderation.results[0].flagged) {\n        await db.query(\"UPDATE comments SET status = 'hidden', hidden_reason = 'auto' WHERE id = $1\", [\n            commentId,\n        ]);\n    }",
+          "evidence": "The comment text goes to OpenAI's moderation model, and a flagged result hides the comment with no human review.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth CM2 (AI-08, direct): external model output drives an automated action (mirrors the rule's moderation example)"
+          ],
+          "crossReferences": [
+            "THIRD_PARTY_SHARING_COLLECTION"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "cbb00fdc58b28bc3",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 28,
+            "end": 33
+          },
+          "excerpt": "    const moderation = await openai.moderations.create({ model: 'omni-moderation-latest', input: text });\n    if (moderation.results[0].flagged) {\n        await db.query(\"UPDATE comments SET status = 'hidden', hidden_reason = 'auto' WHERE id = $1\", [\n            commentId,\n        ]);\n    }",
+          "evidence": "openai.moderations.create sends the user's comment text to OpenAI.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth CM2 (TP-02, direct): user content sent to an external AI provider"
+          ],
+          "crossReferences": [
+            "AI_USAGE"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "30719d4a76093db1",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 38,
+            "end": 52
+          },
+          "excerpt": "router.get('/members/:id', async (req, res) => {\n    const { rows } = await db.query(\n        `SELECT id, display_name, avatar_url, home_region, readiness_score, profile_visibility\n         FROM users WHERE id = $1 AND closed_at IS NULL`,\n        [req.params.id]\n    );\n    const member = rows[0];\n    if (!member) {\n        return res.status(404).end();\n    }\n    if (member.profile_visibility === 'private' && req.session.userId !== member.id) {\n        return res.json({ id: member.id, display_name: member.display_name });\n    }\n    res.json(member);\n});",
+          "evidence": "profile_visibility === 'private' makes the endpoint return only id and display name to anyone but the member.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth CM3 (UC-03, boundary): a user preference controls disclosure to other users, not collection or sharing"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "server/services/mailer.js": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "3b38ab5567ff2a8d",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 10,
+            "end": 20
+          },
+          "excerpt": "async function sendTrailDigest(member, trails) {\n    if (!member.marketing_opt_in) {\n        return;\n    }\n    await sgMail.send({\n        to: member.email,\n        from: FROM_HELLO,\n        templateId: DIGEST_TEMPLATE,\n        dynamicTemplateData: { name: member.display_name, region: member.home_region, trails },\n    });\n}",
+          "evidence": "The digest returns without sending unless member.marketing_opt_in is set.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth ML1 (UC-03, direct): marketing email gated on an opt-in flag (mirrors the rule's positive example)"
+          ],
+          "crossReferences": [
+            "THIRD_PARTY_SHARING_COLLECTION"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "3e5b63e0d6df20d1",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 10,
+            "end": 20
+          },
+          "excerpt": "async function sendTrailDigest(member, trails) {\n    if (!member.marketing_opt_in) {\n        return;\n    }\n    await sgMail.send({\n        to: member.email,\n        from: FROM_HELLO,\n        templateId: DIGEST_TEMPLATE,\n        dynamicTemplateData: { name: member.display_name, region: member.home_region, trails },\n    });\n}",
+          "evidence": "sgMail.send passes the member's email, name and home region to SendGrid.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth ML1 (TP-02, direct): email provider SDK passed the address and profile fields"
+          ],
+          "crossReferences": [
+            "USER_CHOICE_CONTROL"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "d78efbb8392c167a",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 22,
+            "end": 34
+          },
+          "excerpt": "async function sendReceipt(member, invoice) {\n    await sgMail.send({\n        to: member.email,\n        from: FROM_BILLING,\n        templateId: RECEIPT_TEMPLATE,\n        dynamicTemplateData: {\n            name: member.display_name,\n            amount: (invoice.amount_paid / 100).toFixed(2),\n            currency: invoice.currency.toUpperCase(),\n            periodEnd: new Date(invoice.period_end * 1000).toDateString(),\n        },\n    });\n}",
+          "evidence": "sgMail.send passes the member's email, name and payment amount to SendGrid.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth ML2 (TP-02, direct): email provider SDK passed the address and billing details"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "worker/coach.py": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "3759a2a1e9887e93",
+          "category": "AI_USAGE",
+          "lineRange": {
+            "start": 20,
+            "end": 25
+          },
+          "excerpt": "def record_feedback(user_id, transcript, rating):\n    db.execute(\n        \"INSERT INTO coach_feedback (user_id, transcript, rating, include_in_training, created_at) \"\n        \"VALUES (%s, %s, %s, %s, %s)\",\n        (user_id, json.dumps(transcript), rating, True, datetime.now(timezone.utc)),\n    )",
+          "evidence": "Stores the user's coach transcript and rating with include_in_training=True.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth CO1 (AI-08, direct): user data flagged for model training (mirrors the rule's training-data example)"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "ba37fd0c6d9e5e29",
+          "category": "AI_USAGE",
+          "lineRange": {
+            "start": 28,
+            "end": 38
+          },
+          "excerpt": "def export_sft_batch(since):\n    rows = db.fetch_all(\n        \"SELECT transcript FROM coach_feedback WHERE created_at >= %s AND rating >= 4\",\n        (since,),\n    )\n    DATASET_DIR.mkdir(parents=True, exist_ok=True)\n    out_path = DATASET_DIR / f\"{date.today().isoformat()}.jsonl\"\n    with out_path.open(\"a\", encoding=\"utf-8\") as out:\n        for row in rows:\n            out.write(json.dumps({\"messages\": json.loads(row[\"transcript\"])}) + \"\\n\")\n    return out_path",
+          "evidence": "Appends user coach transcripts as {'messages': ...} JSONL records to the datasets/coach_sft directory.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth CO2 (AI-08, boundary): fine-tuning corpus signalled only by 'sft' naming and chat-format JSONL"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "969149a063ea2a2b",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 41,
+            "end": 71
+          },
+          "excerpt": "def build_training_plan(user_id):\n    member = db.fetch_one(\n        \"SELECT display_name, birth_date, readiness_score FROM users WHERE id = %s\",\n        (user_id,),\n    )\n    recent = db.fetch_all(\n        \"SELECT started_at, distance_m, avg_heart_rate FROM activities \"\n        \"WHERE user_id = %s ORDER BY started_at DESC LIMIT 20\",\n        (user_id,),\n    )\n    history = \"\\n\".join(\n        f\"- {a['started_at']:%Y-%m-%d}: {a['distance_m'] / 1000:.1f} km, avg HR {a['avg_heart_rate']}\"\n        for a in recent\n    )\n    response = client.messages.create(\n...",
+          "evidence": "The Anthropic API call sends the member's name, birth date and heart-rate history outside the first-party boundary.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth CO3 (TP-02, direct): personal and health data sent to an external AI provider"
+          ],
+          "crossReferences": [
+            "AI_USAGE"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        },
+        {
+          "fingerprint": "d1d993a95e4cb14d",
+          "category": "AI_USAGE",
+          "lineRange": {
+            "start": 41,
+            "end": 71
+          },
+          "excerpt": "def build_training_plan(user_id):\n    member = db.fetch_one(\n        \"SELECT display_name, birth_date, readiness_score FROM users WHERE id = %s\",\n        (user_id,),\n    )\n    recent = db.fetch_all(\n        \"SELECT started_at, distance_m, avg_heart_rate FROM activities \"\n        \"WHERE user_id = %s ORDER BY started_at DESC LIMIT 20\",\n        (user_id,),\n    )\n    history = \"\\n\".join(\n        f\"- {a['started_at']:%Y-%m-%d}: {a['distance_m'] / 1000:.1f} km, avg HR {a['avg_heart_rate']}\"\n        for a in recent\n    )\n    response = client.messages.create(\n...",
+          "evidence": "The member's name, birth date, readiness score and recent activities go into a prompt for client.messages.create.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth CO3 (AI-08, direct): per-user data sent to an LLM API for generation"
+          ],
+          "crossReferences": [
+            "THIRD_PARTY_SHARING_COLLECTION"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    },
+    "worker/screening.py": {
+      "lastAnalyzedAt": "2026-09-23T00:00:00.000Z",
+      "findings": [
+        {
+          "fingerprint": "869b873230eb55f6",
+          "category": "AI_USAGE",
+          "lineRange": {
+            "start": 16,
+            "end": 40
+          },
+          "excerpt": "def screen_signup(user_id):\n    s = db.fetch_one(\n        \"SELECT ip_country, card_country, email_domain_age_days, signups_from_device_24h, \"\n        \"minutes_to_first_payment FROM signup_signals WHERE user_id = %s\",\n        (user_id,),\n    )\n    features = [\n        [\n            int(s[\"ip_country\"] != s[\"card_country\"]),\n            s[\"email_domain_age_days\"],\n            s[\"signups_from_device_24h\"],\n            s[\"minutes_to_first_payment\"],\n        ]\n    ]\n    score = float(_model.predict_proba(features)[0][1])\n...",
+          "evidence": "A locally loaded classifier scores the signup and locks the account above 0.85 with no human review.",
+          "confidence": "high",
+          "reasoning": [
+            "Ground truth RK1 (AI-08, boundary): first-party local model (joblib predict_proba) drives an automated lock"
+          ],
+          "status": "accepted",
+          "firstSeen": "2026-09-23T00:00:00.000Z",
+          "lastSeen": "2026-09-23T00:00:00.000Z",
+          "decidedAt": "2026-09-23T00:00:00.000Z"
+        }
+      ]
+    }
+  }
+}

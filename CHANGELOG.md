@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the **PrivAnnotate** extension are documented in this file.
+All notable changes to the **PrivAnnotate** extension (formerly PrivAudit) are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -11,6 +11,19 @@ development history, dated by the commit that introduced it.
 
 The current state of `main`: a per-category privacy analysis command with grounded JSON
 findings, accept/reject triage, and a persistent workspace manifest.
+
+### Added - 2026-09-23
+
+* **Evaluation corpus.** `evaluation/trailmark/` is a small fictional web app. Its 18
+  files span Node, browser JS, HTML, Python, SQL, nginx and logrotate, and implement all
+  eight detection rules. Some cases are direct and some deliberately push past the rule
+  examples. `evaluation/ground-truth/labels.json` labels 51 positives, 18 hard negatives
+  and 19 optional (span, rule) pairs. `evaluation/tools/build-ground-truth.mjs` builds
+  those labels into `findings.json`, a manifest in the extension's own format whose
+  fingerprints are cross-checked against `out/findings/fingerprint.js`.
+  `evaluation/tools/score.mjs` scores an extension run against it with IoU-based matching,
+  reporting per-rule P/R/F1, direct vs. boundary recall, hard negatives flagged and
+  confidence operating points. The folder is excluded from the VSIX.
 
 ### Added - 2026-09-22
 
@@ -30,6 +43,13 @@ findings, accept/reject triage, and a persistent workspace manifest.
 * **Prettier and EditorConfig**, with `npm run format` / `npm run format:check`.
 
 ### Changed - 2026-09-22
+
+* **Renamed PrivAudit → PrivAnnotate**, "Automatic Privacy Annotating during Code
+  Authoring". The package is now `priv-annotate`, commands are `priv-annotate.*`,
+  settings and context keys are `privAnnotate.*`, the output channel is *PrivAnnotate*,
+  and the manifest lives in `.privannotate/findings.json`. An existing
+  `.privaudit/findings.json` is still read when no new manifest exists, moves to the new
+  location on the next write, and is removed by Reset Findings Manifest.
 
 * **"Detection cards" are now "detection rules".** `PdcCard` → `PrivacyRule`,
   `PDC_CARDS` → `PRIVACY_RULES`, `getCard` → `getRule`, and the prompt wording. Rule IDs
@@ -64,12 +84,12 @@ findings, accept/reject triage, and a persistent workspace manifest.
 
 ### Added - 2026-08-27
 
-* **Persistent findings manifest.** `.privannotate/findings.json` per workspace folder,
+* **Persistent findings manifest.** `.privaudit/findings.json` per workspace folder,
   written through a per-folder serialized `ManifestStore` so overlapping writes cannot
   lose decisions. Keys and findings are sorted on write so the file diffs cleanly when
   committed (`src/findings/manifest.ts`).
 * **Accept / reject / undo triage.** Decision commands invoked from `command:` links in
-  a finding's hover, with `priv-annotate.toggleRejected` to bring hidden rejections back for
+  a finding's hover, with `priv-audit.toggleRejected` to bring hidden rejections back for
   review (`src/decisions.ts`, `src/misc/decorations.ts`).
 * **Content fingerprints.** SHA-256 over the category plus a whitespace-normalized
   excerpt, deliberately excluding line numbers, so a decision survives the code moving
@@ -86,9 +106,9 @@ findings, accept/reject triage, and a persistent workspace manifest.
   5000-token instruction reserve (`src/chunking.ts`).
 * **Bounded concurrency.** At most three model requests in flight per run, so a large
   file does not burst the Copilot quota (`src/command.ts`).
-* **Run report.** A `PrivAnnotate` output channel with a previous-vs-current comparison,
+* **Run report.** A `PrivAudit` output channel with a previous-vs-current comparison,
   truncation and failed-category warnings, and a one-line summary notification;
-  `priv-annotate.showReport` reopens it (`src/report.ts`).
+  `priv-audit.showReport` reopens it (`src/report.ts`).
 * **Session restore.** Findings are rehydrated for visible editors on activation and on
   editor changes, and a file-system watcher reloads the manifest when it is edited
   outside the extension - a pulled commit or a hand edit (`src/extension.ts`).
@@ -122,7 +142,7 @@ findings, accept/reject triage, and a persistent workspace manifest.
 
 ### 2026-08-09
 
-* **Editor command.** `priv-annotate.analyze` implemented end to end as a text-editor
+* **Editor command.** `priv-audit.analyze` implemented end to end as a text-editor
   command with progress reporting and cancellation, replacing the chat participant
   (`src/participant.ts` removed).
 
@@ -154,11 +174,11 @@ findings, accept/reject triage, and a persistent workspace manifest.
 
 ### 2026-06-09
 
-* Initial `privAnnotate` chat participant and annotate command.
-* Package renamed to PACT, then to PrivAnnotate.
+* Initial `privAudit` chat participant and audit command.
+* Package renamed to PACT, then to PrivAudit (later PrivAnnotate).
 
 ### 2026-06-02
 
 * Initial extension scaffold.
 
-[Unreleased]: https://github.com/rios240/privannotate/commits/main
+[Unreleased]: https://github.com/rios240/privacy-annotate/commits/main
