@@ -101,6 +101,11 @@
           "default": "",
           "markdownDescription": "Model family to request from the vendor (for example `gpt-4o`). Leave empty to use the vendor's first available model."
         },
+        "privAnnotate.model.id": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Specific model ID to request from the vendor. Leave empty to use the vendor's first available model."
+        },
         "privAnnotate.analysis.maxConcurrentRequests": {
           "type": "integer",
           "default": 3,

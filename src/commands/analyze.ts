@@ -74,6 +74,7 @@ async function analyze(textEditor: vscode.TextEditor): Promise<void> {
             const [model] = await vscode.lm.selectChatModels({
                 vendor: settings.modelVendor,
                 ...(settings.modelFamily ? { family: settings.modelFamily } : {}),
+                ...(settings.modelId ? { id: settings.modelId } : {}),
             });
 
             if (!model) {

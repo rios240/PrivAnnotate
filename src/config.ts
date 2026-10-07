@@ -9,6 +9,8 @@ export interface Settings {
     modelVendor: string;
     /** Optional model family; undefined lets the vendor pick. */
     modelFamily?: string;
+    /** Optional model id; undefined lets the vendor pick. */
+    modelId?: string;
     /** Per-rule requests in flight at once during an Analyze run. */
     maxConcurrentRequests: number;
     /** Lines repeated between adjacent chunks. */
@@ -18,6 +20,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
     modelVendor: 'copilot',
     modelFamily: undefined,
+    modelId: undefined,
     maxConcurrentRequests: 3,
     chunkOverlapLines: CHUNK_OVERLAP_LINES,
 };
@@ -44,6 +47,7 @@ export function normalizeSettings(raw: Record<string, unknown>): Settings {
     return {
         modelVendor: nonEmpty(raw['model.vendor']) ?? DEFAULT_SETTINGS.modelVendor,
         modelFamily: nonEmpty(raw['model.family']),
+        modelId: nonEmpty(raw['model.id']),
         maxConcurrentRequests: clampInteger(
             raw['analysis.maxConcurrentRequests'],
             1,
@@ -64,6 +68,7 @@ export function getSettings(): Settings {
     const keys = [
         'model.vendor',
         'model.family',
+        'model.id',
         'analysis.maxConcurrentRequests',
         'analysis.chunkOverlapLines',
     ];

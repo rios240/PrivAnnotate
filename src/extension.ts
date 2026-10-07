@@ -8,6 +8,7 @@ import { loadFindingsFor } from './findings/persistence';
 import { disposeDecorations, updateDecorations } from './ui/decorations';
 import { registerHoverProvider } from './ui/hover';
 import { disposeReport } from './ui/report';
+import { getSettings } from './config';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('PrivAnnotate is now active.');
@@ -17,6 +18,32 @@ export function activate(context: vscode.ExtensionContext) {
     registerManifestCommands(context);
     registerViewCommands(context);
     registerHoverProvider(context);
+
+    // TEMPORARY DEBUG - remove once done
+    const debugChannel = vscode.window.createOutputChannel('PrivAnnotate: Debug');
+    context.subscriptions.push(debugChannel);
+
+    void (async () => {
+        debugChannel.appendLine('--- Settings (getSettings()) ---');
+        debugChannel.appendLine(JSON.stringify(getSettings(), null, 2));
+        debugChannel.appendLine('');
+
+        debugChannel.appendLine('--- Available chat models (vscode.lm.selectChatModels({})) ---');
+        const models = await vscode.lm.selectChatModels({}); // empty selector = every vendor/family
+        if (models.length === 0) {
+            debugChannel.appendLine('(none found - Copilot Chat may not be signed in / activated yet)');
+        } else {
+            models.forEach(m => {
+                debugChannel.appendLine(
+                    `${m.vendor}/${m.family}  id=${m.id}  name="${m.name}"  version=${m.version}  ` +
+                        `maxInputTokens=${m.maxInputTokens}`
+                );
+            });
+        }
+        debugChannel.appendLine('');
+
+        debugChannel.show(true);
+    })();
 
     // Findings persist between sessions, so restore them for whatever is
     // already open and for anything the user opens later.
