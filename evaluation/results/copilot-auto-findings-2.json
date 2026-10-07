@@ -1,0 +1,2236 @@
+{
+  "version": 1,
+  "files": {
+    "db/migrations/0007_location_pings.sql": {
+      "lastAnalyzedAt": "2026-10-07T02:44:45.946Z",
+      "findings": [
+        {
+          "fingerprint": "dcf1372009645657",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 5,
+            "end": 5
+          },
+          "excerpt": "user_id     bigint NOT NULL REFERENCES users (id) ON DELETE CASCADE",
+          "evidence": "The user_id field references a user, indicating collection of user-related data.",
+          "confidence": "medium",
+          "reasoning": [
+            "The user_id field is defined as part of the location_pings table.",
+            "This field is intended to store data that links a location ping to a specific user.",
+            "While this is a reference, it implies that user data is being collected in the context of location pings."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:44:45.945Z",
+          "lastSeen": "2026-10-07T02:44:45.945Z"
+        },
+        {
+          "fingerprint": "4637c6c96dfe5d6c",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 7,
+            "end": 8
+          },
+          "excerpt": "lat         double precision NOT NULL,\n    lon         double precision NOT NULL,",
+          "evidence": "The lat and lon fields are defined to store location data, indicating collection of geographical information.",
+          "confidence": "high",
+          "reasoning": [
+            "The lat and lon fields are defined as part of the location_pings table.",
+            "These fields are intended to store location data that is directly linked to users.",
+            "This constitutes a direct collection of user-related data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:44:45.945Z",
+          "lastSeen": "2026-10-07T02:44:45.945Z"
+        },
+        {
+          "fingerprint": "787d8d4f012867b5",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 15,
+            "end": 15
+          },
+          "excerpt": "ALTER TABLE location_pings ENABLE ROW LEVEL SECURITY;",
+          "evidence": "The command enables row-level security on the location_pings table, which restricts access to rows based on user roles.",
+          "confidence": "high",
+          "reasoning": [
+            "Row-level security is a mechanism that controls access to rows in a database table based on the characteristics of the user executing a query.",
+            "This command directly implements a security measure to protect user data in the location_pings table."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:44:45.945Z",
+          "lastSeen": "2026-10-07T02:44:45.945Z"
+        },
+        {
+          "fingerprint": "1627249237d2486a",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 18,
+            "end": 24
+          },
+          "excerpt": "CREATE POLICY location_pings_same_hike ON location_pings\n    FOR SELECT\n    USING (\n        hike_id IN (\n            SELECT hike_id FROM group_hike_members\n            WHERE user_id = current_setting('app.current_user_id')::bigint\n        )\n    );",
+          "evidence": "This policy restricts SELECT access to rows based on the user's membership in a hike, ensuring that only authorized users can access specific data.",
+          "confidence": "medium",
+          "reasoning": [
+            "The policy checks if the user is part of a hike before allowing access to the location_pings data.",
+            "This is a direct implementation of an access control mechanism to protect user data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:44:45.945Z",
+          "lastSeen": "2026-10-07T02:44:45.945Z"
+        },
+        {
+          "fingerprint": "a6edb2d9f080476e",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 22,
+            "end": 22
+          },
+          "excerpt": "WHERE user_id = current_setting('app.current_user_id')::bigint",
+          "evidence": "This line checks if the user_id matches the currently authenticated user's ID, allowing user-specific access.",
+          "confidence": "high",
+          "reasoning": [
+            "The policy restricts access to the user's own location pings based on their user_id.",
+            "This is a self-service operation allowing users to access their own data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:44:45.945Z",
+          "lastSeen": "2026-10-07T02:44:45.945Z"
+        },
+        {
+          "fingerprint": "f15f4acbe26c565d",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 26,
+            "end": 28
+          },
+          "excerpt": "CREATE POLICY location_pings_own_insert ON location_pings\n    FOR INSERT\n    WITH CHECK (user_id = current_setting('app.current_user_id')::bigint);",
+          "evidence": "This policy ensures that users can only insert their own location data, preventing unauthorized data entries.",
+          "confidence": "high",
+          "reasoning": [
+            "The policy restricts INSERT operations to only allow the user to insert data associated with their own user_id.",
+            "This is a safeguard against unauthorized data manipulation."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:44:45.945Z",
+          "lastSeen": "2026-10-07T02:44:45.945Z"
+        },
+        {
+          "fingerprint": "7f56a33fb2c7037d",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 28,
+            "end": 28
+          },
+          "excerpt": "WITH CHECK (user_id = current_setting('app.current_user_id')::bigint)",
+          "evidence": "This line ensures that only the user who owns the record can insert their own location pings.",
+          "confidence": "high",
+          "reasoning": [
+            "The policy allows users to insert records only if the user_id matches their own.",
+            "This is a self-service operation allowing users to add their own data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:44:45.945Z",
+          "lastSeen": "2026-10-07T02:44:45.945Z"
+        },
+        {
+          "fingerprint": "f5d1b9b4d38afa84",
+          "category": "DATA_RETENTION",
+          "lineRange": {
+            "start": 30,
+            "end": 34
+          },
+          "excerpt": "SELECT cron.schedule(\n     'location-pings-expiry',\n     '*/30 * * * *',\n     $$DELETE FROM location_pings WHERE recorded_at < now() - interval '72 hours'$$\n);",
+          "evidence": "This SQL command schedules a cron job to delete records from the location_pings table that are older than 72 hours.",
+          "confidence": "high",
+          "reasoning": [
+            "The code sets up a scheduled job using cron to run every 30 minutes.",
+            "The job deletes records from the location_pings table based on the recorded_at timestamp.",
+            "This directly implements a retention policy by purging data older than 72 hours."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:44:45.945Z",
+          "lastSeen": "2026-10-07T02:44:45.945Z"
+        }
+      ]
+    },
+    "deploy/logrotate/trailmark.conf": {
+      "lastAnalyzedAt": "2026-10-07T02:44:55.941Z",
+      "findings": [
+        {
+          "fingerprint": "e6f5518b1672cb47",
+          "category": "DATA_RETENTION",
+          "lineRange": {
+            "start": 3,
+            "end": 4
+          },
+          "excerpt": "rotate 14\nmaxage 14",
+          "evidence": "The 'rotate 14' directive specifies that logs will be rotated every day for 14 days, and 'maxage 14' indicates that logs older than 14 days will be removed.",
+          "confidence": "high",
+          "reasoning": [
+            "The 'rotate' directive establishes a retention policy for log files.",
+            "The 'maxage' directive enforces a maximum age for retained logs, ensuring they are purged after 14 days."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:44:55.940Z",
+          "lastSeen": "2026-10-07T02:44:55.940Z"
+        }
+      ]
+    },
+    "deploy/nginx.conf": {
+      "lastAnalyzedAt": "2026-10-07T02:45:02.178Z",
+      "findings": [
+        {
+          "fingerprint": "ba79076655241252",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 10,
+            "end": 19
+          },
+          "excerpt": "    listen 443 ssl;\n    http2 on;\n    server_name trailmark.example www.trailmark.example;\n\n    ssl_certificate     /etc/letsencrypt/live/trailmark.example/fullchain.pem;\n    ssl_certificate_key /etc/letsencrypt/live/trailmark.example/privkey.pem;\n    ssl_protocols       TLSv1.2 TLSv1.3;\n    ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;\n    ssl_prefer_server_ciphers off;\n    add_header Strict-Transport-Security \"max-age=63072000; includeSubDomains\" always;",
+          "evidence": "The configuration enforces SSL/TLS for secure transport and sets HTTP Strict Transport Security (HSTS).",
+          "confidence": "high",
+          "reasoning": [
+            "The 'listen 443 ssl;' directive indicates that the server is configured to use SSL/TLS.",
+            "The 'ssl_certificate' and 'ssl_certificate_key' directives specify the paths to the SSL certificate and key, ensuring encrypted connections.",
+            "The 'ssl_protocols' and 'ssl_ciphers' directives define the protocols and ciphers used for secure connections.",
+            "The 'add_header Strict-Transport-Security' directive enforces HSTS, which is a security feature that helps protect against man-in-the-middle attacks."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:02.178Z",
+          "lastSeen": "2026-10-07T02:45:02.178Z"
+        }
+      ]
+    },
+    "public/index.html": {
+      "lastAnalyzedAt": "2026-10-07T02:45:37.136Z",
+      "findings": [
+        {
+          "fingerprint": "c0662ddf303c9e45",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 25,
+            "end": 31
+          },
+          "excerpt": "        <section id=\"cookie-choices\" class=\"banner\" hidden>\n            <h2>Your choices</h2>\n            <p>Pick which optional cookies Trailmark may use. You can change this at any time in Settings.</p>\n            <label><input type=\"checkbox\" id=\"choice-analytics\" /> Product analytics</label>\n            <label><input type=\"checkbox\" id=\"choice-marketing\" /> Personalised ads</label>\n            <button type=\"button\" id=\"choices-save\">Save choices</button>\n            <button type=\"button\" id=\"choices-reject\">Reject all</button>\n        </section>",
+          "evidence": "The section provides checkboxes for users to select their cookie preferences and buttons to save or reject those choices.",
+          "confidence": "high",
+          "reasoning": [
+            "The section allows users to choose their cookie preferences via checkboxes.",
+            "The presence of 'Save choices' and 'Reject all' buttons indicates user control over data collection.",
+            "This directly aligns with the User Choice/Control category."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:37.135Z",
+          "lastSeen": "2026-10-07T02:45:37.135Z"
+        },
+        {
+          "fingerprint": "37985d3e474c16c8",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 34,
+            "end": 52
+          },
+          "excerpt": "            function saveChoices(choices) {\n                localStorage.setItem('tm_consent', JSON.stringify({ ...choices, savedAt: Date.now() }));\n                fetch('/api/me/privacy', {\n                    method: 'PUT',\n                    headers: { 'content-type': 'application/json' },\n                    body: JSON.stringify({ partnerSharing: choices.marketing }),\n                });\n                document.getElementById('cookie-choices').hidden = true;\n                window.trailmarkConsent.apply(choices);\n            }\n            document.getElementById('choices-save').addEventListener('click', () => {\n                saveChoices({\n                    analytics: document.getElementById('choice-analytics').checked,\n                    marketing: document.getElementById('choice-marketing').checked,\n                });\n            });\n            document.getElementById('choices-reject').addEventListener('click', () => {\n                saveChoices({ analytics: false, marketing: false });\n            });",
+          "evidence": "The 'saveChoices' function processes user-selected preferences and updates the privacy settings accordingly.",
+          "confidence": "high",
+          "reasoning": [
+            "The function saves user choices to local storage and sends them to the server.",
+            "The event listeners for the buttons ensure that user preferences are respected and acted upon.",
+            "This demonstrates a clear mechanism for user control over data practices."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:37.135Z",
+          "lastSeen": "2026-10-07T02:45:37.135Z"
+        },
+        {
+          "fingerprint": "c37a50a671dcc921",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 35,
+            "end": 35
+          },
+          "excerpt": "localStorage.setItem('tm_consent', JSON.stringify({ ...choices, savedAt: Date.now() }));",
+          "evidence": "The code stores user consent choices in local storage, which is user-specific data.",
+          "confidence": "high",
+          "reasoning": [
+            "The operation saves user choices related to analytics and marketing.",
+            "This involves reading user input from checkboxes and persisting it.",
+            "The data is directly linked to the user's preferences."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:37.135Z",
+          "lastSeen": "2026-10-07T02:45:37.135Z"
+        },
+        {
+          "fingerprint": "5c7e42500101840c",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 36,
+            "end": 40
+          },
+          "excerpt": "fetch('/api/me/privacy', {\n                    method: 'PUT',\n                    headers: { 'content-type': 'application/json' },\n                    body: JSON.stringify({ partnerSharing: choices.marketing }),\n                });",
+          "evidence": "The fetch call sends user consent data to an external API endpoint.",
+          "confidence": "medium",
+          "reasoning": [
+            "The fetch call targets an API endpoint that may be external.",
+            "The body includes user-linked data (choices.marketing).",
+            "The destination of the API call is not fully clear from the provided code."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:37.135Z",
+          "lastSeen": "2026-10-07T02:45:37.135Z"
+        },
+        {
+          "fingerprint": "063e03891750a63f",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 39,
+            "end": 39
+          },
+          "excerpt": "body: JSON.stringify({ partnerSharing: choices.marketing }),",
+          "evidence": "The code sends user choice regarding marketing sharing to the server.",
+          "confidence": "high",
+          "reasoning": [
+            "The operation involves collecting user preferences for marketing.",
+            "This data is sent to the server as part of a privacy update.",
+            "It is directly tied to the user's consent choices."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:37.135Z",
+          "lastSeen": "2026-10-07T02:45:37.135Z"
+        }
+      ]
+    },
+    "public/js/analytics.js": {
+      "lastAnalyzedAt": "2026-10-07T02:45:15.495Z",
+      "findings": [
+        {
+          "fingerprint": "48fb39582c0ce708",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 7,
+            "end": 19
+          },
+          "excerpt": "const dnt = navigator.doNotTrack === '1' || window.doNotTrack === '1';\n        if (!dnt) {\n            const tag = document.createElement('script');\n            tag.async = true;\n            tag.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;\n            document.head.appendChild(tag);\n            window.dataLayer = window.dataLayer || [];\n            window.gtag = function () {\n                window.dataLayer.push(arguments);\n            };\n            window.gtag('js', new Date());\n            window.gtag('config', GA_MEASUREMENT_ID, { user_id: user.id });\n        }",
+          "evidence": "The code checks the 'doNotTrack' setting before loading Google Analytics, which is a user preference.",
+          "confidence": "high",
+          "reasoning": [
+            "The variable 'dnt' checks if the user has enabled 'Do Not Track'.",
+            "The subsequent data operation (loading Google Analytics) is gated by the 'if (!dnt)' condition.",
+            "This indicates that the user's choice regarding tracking is respected."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:15.494Z",
+          "lastSeen": "2026-10-07T02:45:15.494Z"
+        },
+        {
+          "fingerprint": "dc3981311fb53526",
+          "category": "DO_NOT_TRACK",
+          "lineRange": {
+            "start": 7,
+            "end": 19
+          },
+          "excerpt": "const dnt = navigator.doNotTrack === '1' || window.doNotTrack === '1';\nif (!dnt) {\n    const tag = document.createElement('script');\ntag.async = true;\ntag.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;\ndocument.head.appendChild(tag);\nwindow.dataLayer = window.dataLayer || [];\nwindow.gtag = function () {\n    window.dataLayer.push(arguments);\n};\nwindow.gtag('js', new Date());\nwindow.gtag('config', GA_MEASUREMENT_ID, { user_id: user.id });\n}",
+          "evidence": "The code reads the DNT signal and initializes Google Analytics only if DNT is not set.",
+          "confidence": "high",
+          "reasoning": [
+            "Reads the DNT signal using navigator.doNotTrack and window.doNotTrack.",
+            "Branches on the value of dnt with the condition if (!dnt).",
+            "The analytics initialization is gated behind this condition, meaning the DNT signal is honored."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:15.494Z",
+          "lastSeen": "2026-10-07T02:45:15.494Z"
+        },
+        {
+          "fingerprint": "8dcf557c5d996268",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 11,
+            "end": 11
+          },
+          "excerpt": "tag.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;",
+          "evidence": "The script source is an external URL for Google Tag Manager, which is a third-party service.",
+          "confidence": "high",
+          "reasoning": [
+            "The line sets the source of a script tag to an external domain.",
+            "Google Tag Manager is a third-party analytics service.",
+            "This indicates data may be sent to an external service."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:15.494Z",
+          "lastSeen": "2026-10-07T02:45:15.494Z"
+        },
+        {
+          "fingerprint": "48bc2edc4f7d4104",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 18,
+            "end": 18
+          },
+          "excerpt": "window.gtag('config', GA_MEASUREMENT_ID, { user_id: user.id });",
+          "evidence": "The code collects the user ID from the 'user' object and sends it to Google Analytics.",
+          "confidence": "high",
+          "reasoning": [
+            "The line reads the 'user.id' value, which is linked to an identifiable user.",
+            "This is a direct collection of user information for analytics purposes.",
+            "The value is used in the application's own logic to configure Google Analytics."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:15.494Z",
+          "lastSeen": "2026-10-07T02:45:15.494Z"
+        },
+        {
+          "fingerprint": "1d21e06dc9ddbd17",
+          "category": "DO_NOT_TRACK",
+          "lineRange": {
+            "start": 23,
+            "end": 25
+          },
+          "excerpt": "const dnt = navigator.doNotTrack === '1';\nwindow.Sentry.setTag('dnt', dnt ? 'on' : 'off');",
+          "evidence": "The code reads the DNT signal and sets a tag in Sentry based on its value.",
+          "confidence": "high",
+          "reasoning": [
+            "Reads the DNT signal using navigator.doNotTrack.",
+            "Sets a tag in Sentry based on the value of dnt, indicating the DNT status is being honored."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:15.494Z",
+          "lastSeen": "2026-10-07T02:45:15.494Z"
+        },
+        {
+          "fingerprint": "463fd12763807c34",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 23,
+            "end": 25
+          },
+          "excerpt": "const dnt = navigator.doNotTrack === '1';\n        window.Sentry.setTag('dnt', dnt ? 'on' : 'off');",
+          "evidence": "The code sets a tag for Sentry based on the user's 'Do Not Track' preference.",
+          "confidence": "high",
+          "reasoning": [
+            "The variable 'dnt' checks the 'Do Not Track' setting.",
+            "The Sentry tag is set based on this preference, indicating user control over tracking."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:15.494Z",
+          "lastSeen": "2026-10-07T02:45:15.494Z"
+        },
+        {
+          "fingerprint": "e1d9f0e73c17316c",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 24,
+            "end": 24
+          },
+          "excerpt": "window.Sentry.init({ dsn: SENTRY_DSN, release: window.TRAILMARK_RELEASE, tracesSampleRate: 0.2 });",
+          "evidence": "This initializes Sentry, a third-party error tracking service, with a DSN that includes user data.",
+          "confidence": "high",
+          "reasoning": [
+            "The line initializes a third-party service (Sentry) with a DSN.",
+            "This indicates potential sharing of error data with an external service."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:15.494Z",
+          "lastSeen": "2026-10-07T02:45:15.494Z"
+        },
+        {
+          "fingerprint": "4b5207fcbd9be5ea",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 27,
+            "end": 27
+          },
+          "excerpt": "window.Sentry.setUser({ id: user.id, email: user.email });",
+          "evidence": "The code collects the user ID and email from the 'user' object for error reporting.",
+          "confidence": "high",
+          "reasoning": [
+            "The line reads the 'user.id' and 'user.email', which are linked to an identifiable user.",
+            "This information is used to set the user context in Sentry for error tracking.",
+            "The values are part of the application's own logic for user identification."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:15.494Z",
+          "lastSeen": "2026-10-07T02:45:15.494Z"
+        },
+        {
+          "fingerprint": "c627eec04749cb2c",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 27,
+            "end": 27
+          },
+          "excerpt": "window.Sentry.setUser({ id: user.id, email: user.email });",
+          "evidence": "This line sends user information to Sentry, a third-party service.",
+          "confidence": "high",
+          "reasoning": [
+            "The line sets user data in Sentry, which is an external service.",
+            "This indicates sharing of user-linked data with a third party."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:15.494Z",
+          "lastSeen": "2026-10-07T02:45:15.494Z"
+        },
+        {
+          "fingerprint": "0d86ef536b253c41",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 41,
+            "end": 42
+          },
+          "excerpt": "if (navigator.doNotTrack === '1') {\n            return;",
+          "evidence": "The function checks the 'Do Not Track' setting before sending telemetry data.",
+          "confidence": "high",
+          "reasoning": [
+            "The condition checks the user's 'Do Not Track' preference.",
+            "If enabled, the telemetry tracking is aborted, showing respect for user choice."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:15.494Z",
+          "lastSeen": "2026-10-07T02:45:15.494Z"
+        },
+        {
+          "fingerprint": "cbd33f20ea1ba4dd",
+          "category": "DO_NOT_TRACK",
+          "lineRange": {
+            "start": 41,
+            "end": 42
+          },
+          "excerpt": "if (navigator.doNotTrack === '1') {\n    return;\n}",
+          "evidence": "The code checks the DNT signal and returns early from the function if DNT is set.",
+          "confidence": "high",
+          "reasoning": [
+            "Reads the DNT signal using navigator.doNotTrack.",
+            "Branches on the value of navigator.doNotTrack with the condition if (navigator.doNotTrack === '1').",
+            "The function exits early if DNT is set, indicating the DNT signal is honored."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:15.494Z",
+          "lastSeen": "2026-10-07T02:45:15.494Z"
+        },
+        {
+          "fingerprint": "2e4bc6527067d426",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 45,
+            "end": 46
+          },
+          "excerpt": "navigator.sendBeacon('/api/telemetry', JSON.stringify({ screen: name, session: telemetrySession(), user: user.id, ts: Date.now() }))",
+          "evidence": "The sendBeacon method is used to send data to an endpoint, which may be external.",
+          "confidence": "low",
+          "reasoning": [
+            "The line sends telemetry data, potentially to an external API.",
+            "The endpoint '/api/telemetry' could be first-party or third-party depending on the server configuration."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:15.494Z",
+          "lastSeen": "2026-10-07T02:45:15.494Z"
+        },
+        {
+          "fingerprint": "d94db896d128c96b",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 46,
+            "end": 46
+          },
+          "excerpt": "JSON.stringify({ screen: name, session: telemetrySession(), user: user.id, ts: Date.now() })",
+          "evidence": "The code collects the user ID along with screen name and session ID for telemetry.",
+          "confidence": "high",
+          "reasoning": [
+            "The line includes 'user.id', which is linked to an identifiable user.",
+            "This information is sent to the server as part of the telemetry data.",
+            "The values are used in the application's own logic to track user interactions."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:15.494Z",
+          "lastSeen": "2026-10-07T02:45:15.494Z"
+        }
+      ]
+    },
+    "public/js/consent.js": {
+      "lastAnalyzedAt": "2026-10-07T02:45:23.262Z",
+      "findings": [
+        {
+          "fingerprint": "57421b05aad7dd87",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 16,
+            "end": 45
+          },
+          "excerpt": "function readChoices() {\n    try {\n        return JSON.parse(localStorage.getItem('tm_consent'));\n    } catch {\n        return null;\n    }\n}\n\nfunction apply(choices) {\n    const user = window.TRAILMARK_USER || {};\n    if (!choices) {\n        document.getElementById('cookie-choices').hidden = false;\n        return;\n    }\n    if (choices.analytics) {\n        loadScript(`https://cdn.segment.com/analytics.js/v1/${SEGMENT_WRITE_KEY}/analytics.min.js`).then(() => {\n            window.analytics.identify(user.id, { plan: user.plan, region: user.homeRegion });\n            window.analytics.page();\n        });\n    }\n    if (choices.marketing && navigator.globalPrivacyControl !== true) {\n        loadScript('https://connect.facebook.net/en_US/fbevents.js').then(() => {\n            window.fbq('init', META_PIXEL_ID, { external_id: user.id });\n            window.fbq('track', 'PageView');\n        });\n    }\n}",
+          "evidence": "The function `readChoices` retrieves user consent from local storage, and the `apply` function uses this consent to conditionally load scripts based on user choices.",
+          "confidence": "high",
+          "reasoning": [
+            "The `readChoices` function reads user consent from local storage, which is a user-settable preference.",
+            "The `apply` function checks the `choices` object to determine whether to load analytics or marketing scripts based on user consent.",
+            "This demonstrates user choice/control over data collection practices."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:23.262Z",
+          "lastSeen": "2026-10-07T02:45:23.262Z"
+        },
+        {
+          "fingerprint": "566cb3d6b399beda",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 31,
+            "end": 34
+          },
+          "excerpt": "loadScript(`https://cdn.segment.com/analytics.js/v1/${SEGMENT_WRITE_KEY}/analytics.min.js`).then(() => {\n    window.analytics.identify(user.id, { plan: user.plan, region: user.homeRegion });\n    window.analytics.page();\n});",
+          "evidence": "The call to `loadScript` includes a URL to Segment's analytics service, which is an external vendor.",
+          "confidence": "high",
+          "reasoning": [
+            "The `loadScript` function is called with a URL that points to an external analytics service.",
+            "The `window.analytics.identify` method is invoked, passing user data (user.id, user.plan, user.homeRegion).",
+            "Segment is a third-party service, indicating data is shared externally."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:23.262Z",
+          "lastSeen": "2026-10-07T02:45:23.262Z"
+        },
+        {
+          "fingerprint": "0b85d01e9cbee4e8",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 32,
+            "end": 32
+          },
+          "excerpt": "window.analytics.identify(user.id, { plan: user.plan, region: user.homeRegion });",
+          "evidence": "The code retrieves user information (id, plan, region) and sends it to the analytics service.",
+          "confidence": "high",
+          "reasoning": [
+            "The function `apply` is called with user choices.",
+            "If analytics is enabled, it calls `window.analytics.identify` with user data.",
+            "This operation collects and uses identifiable user information."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:23.262Z",
+          "lastSeen": "2026-10-07T02:45:23.262Z"
+        },
+        {
+          "fingerprint": "89c5be735fc4102d",
+          "category": "DO_NOT_TRACK",
+          "lineRange": {
+            "start": 36,
+            "end": 36
+          },
+          "excerpt": "if (choices.marketing && navigator.globalPrivacyControl !== true) {",
+          "evidence": "The code checks the value of 'navigator.globalPrivacyControl' to determine if marketing scripts should be loaded.",
+          "confidence": "high",
+          "reasoning": [
+            "Reads 'navigator.globalPrivacyControl', which is a signal related to user privacy preferences.",
+            "Branches on the value of 'navigator.globalPrivacyControl'.",
+            "The loading of marketing scripts is gated behind this check, indicating that the signal is honored."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:23.262Z",
+          "lastSeen": "2026-10-07T02:45:23.262Z"
+        },
+        {
+          "fingerprint": "db3d7794ef641442",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 37,
+            "end": 40
+          },
+          "excerpt": "loadScript('https://connect.facebook.net/en_US/fbevents.js').then(() => {\n    window.fbq('init', META_PIXEL_ID, { external_id: user.id });\n    window.fbq('track', 'PageView');\n});",
+          "evidence": "The call to `loadScript` includes a URL to Facebook's tracking service, which is an external vendor.",
+          "confidence": "high",
+          "reasoning": [
+            "The `loadScript` function is called with a URL that points to Facebook's event tracking service.",
+            "The `window.fbq` method is invoked, passing user data (external_id: user.id).",
+            "Facebook is a third-party service, indicating data is shared externally."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:23.262Z",
+          "lastSeen": "2026-10-07T02:45:23.262Z"
+        },
+        {
+          "fingerprint": "7da7a2aa1f57a7bf",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 38,
+            "end": 38
+          },
+          "excerpt": "window.fbq('init', META_PIXEL_ID, { external_id: user.id });",
+          "evidence": "The code initializes the Facebook Pixel with the user's ID, which is identifiable information.",
+          "confidence": "high",
+          "reasoning": [
+            "The function `apply` checks if marketing choices are enabled.",
+            "It calls `window.fbq('init', ...)` with the user's ID.",
+            "This operation collects and uses identifiable user information."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:23.262Z",
+          "lastSeen": "2026-10-07T02:45:23.262Z"
+        }
+      ]
+    },
+    "public/js/recorder.js": {
+      "lastAnalyzedAt": "2026-10-07T02:45:30.157Z",
+      "findings": [
+        {
+          "fingerprint": "72cff745c791659b",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 7,
+            "end": 11
+          },
+          "excerpt": "const permission = await navigator.permissions.query({ name: 'geolocation' });\nif (permission.state === 'denied') {\n    showStatus('Location is off for Trailmark. Turn it on in your browser settings to record a route.');\n    return false;\n}",
+          "evidence": "The code checks the user's geolocation permission state before proceeding with recording.",
+          "confidence": "high",
+          "reasoning": [
+            "The permission state is queried using the Permissions API.",
+            "The subsequent action (recording) is gated on the user's choice regarding geolocation access."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:30.157Z",
+          "lastSeen": "2026-10-07T02:45:30.157Z"
+        },
+        {
+          "fingerprint": "363ddb716620e681",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 12,
+            "end": 19
+          },
+          "excerpt": "watchId = navigator.geolocation.watchPosition(\n            pos => {\n                points.push({\n                    lat: pos.coords.latitude,\n                    lon: pos.coords.longitude,\n                    ele: pos.coords.altitude,\n                    t: pos.timestamp,\n                });",
+          "evidence": "The code retrieves geolocation data (latitude, longitude, altitude, timestamp) from the user's device and stores it in the 'points' array.",
+          "confidence": "high",
+          "reasoning": [
+            "The function 'navigator.geolocation.watchPosition' is called, which accesses the user's geolocation.",
+            "The 'pos' object contains user-specific location data.",
+            "This data is then pushed into the 'points' array, indicating collection and use of first-party data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:30.157Z",
+          "lastSeen": "2026-10-07T02:45:30.157Z"
+        },
+        {
+          "fingerprint": "fc07e98950bf9c51",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 34,
+            "end": 36
+          },
+          "excerpt": "channel.addEventListener('characteristicvaluechanged', event => {\n            const data = event.target.value;\n            const bpm = data.getUint8(0) & 0x1 ? data.getUint16(1, true) : data.getUint8(1);",
+          "evidence": "The code listens for changes in the Bluetooth characteristic value, which includes user-specific data (bpm).",
+          "confidence": "low",
+          "reasoning": [
+            "The event listener captures data from a Bluetooth device, which may be linked to a user.",
+            "The 'bpm' value is derived from the data received, indicating a computation based on user-linked information."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:30.157Z",
+          "lastSeen": "2026-10-07T02:45:30.157Z"
+        }
+      ]
+    },
+    "server/app.js": {
+      "lastAnalyzedAt": "2026-10-07T02:46:54.629Z",
+      "findings": [
+        {
+          "fingerprint": "4d30092aae3e8132",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 22,
+            "end": 22
+          },
+          "excerpt": "app.use(express.json({ limit: '1mb' }));",
+          "evidence": "The express.json() middleware reads the request body, which may contain user-supplied data.",
+          "confidence": "high",
+          "reasoning": [
+            "The express.json() middleware is used to parse incoming request bodies.",
+            "This operation reads data that may describe a specific user from the request.",
+            "The data is processed within the application's own logic."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:54.629Z",
+          "lastSeen": "2026-10-07T02:46:54.629Z"
+        },
+        {
+          "fingerprint": "6f9efdfa22fcaefe",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 26,
+            "end": 36
+          },
+          "excerpt": "        store: new RedisStore({ client: redis, prefix: 'tm:sess:', ttl: 60 * 60 * 24 * 14 }),\n        secret: process.env.SESSION_SECRET,\n        name: 'tm.sid',\n        resave: false,\n        saveUninitialized: false,\n        cookie: {\n            secure: true,\n            httpOnly: true,\n            sameSite: 'lax',\n            maxAge: 1000 * 60 * 60 * 24 * 14,\n        },",
+          "evidence": "The session configuration includes secure cookie settings (secure, httpOnly, sameSite) and uses a secret for session management.",
+          "confidence": "high",
+          "reasoning": [
+            "The session middleware is configured with a secret, which is a protective measure for session data.",
+            "The cookie settings enforce security measures to protect session cookies from being accessed by client-side scripts and ensure they are only sent over HTTPS."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:54.629Z",
+          "lastSeen": "2026-10-07T02:46:54.629Z"
+        },
+        {
+          "fingerprint": "c6095d702c060009",
+          "category": "DATA_RETENTION",
+          "lineRange": {
+            "start": 26,
+            "end": 26
+          },
+          "excerpt": "store: new RedisStore({ client: redis, prefix: 'tm:sess:', ttl: 60 * 60 * 24 * 14 })",
+          "evidence": "The 'ttl' parameter in the RedisStore configuration specifies a time-to-live for session data.",
+          "confidence": "high",
+          "reasoning": [
+            "The code sets a 'ttl' value of 14 days for session data stored in Redis.",
+            "This establishes a clear retention policy for user session information."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:54.629Z",
+          "lastSeen": "2026-10-07T02:46:54.629Z"
+        },
+        {
+          "fingerprint": "14f45a775972c19d",
+          "category": "DATA_RETENTION",
+          "lineRange": {
+            "start": 35,
+            "end": 35
+          },
+          "excerpt": "maxAge: 1000 * 60 * 60 * 24 * 14",
+          "evidence": "The 'maxAge' property in the cookie configuration specifies how long the cookie should be valid.",
+          "confidence": "high",
+          "reasoning": [
+            "The code sets a 'maxAge' of 14 days for the session cookie.",
+            "This defines a retention period for the session cookie associated with user data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:54.629Z",
+          "lastSeen": "2026-10-07T02:46:54.629Z"
+        }
+      ]
+    },
+    "server/jobs/nightly.js": {
+      "lastAnalyzedAt": "2026-10-07T02:45:46.034Z",
+      "findings": [
+        {
+          "fingerprint": "85148d2e8ce18fa2",
+          "category": "DATA_RETENTION",
+          "lineRange": {
+            "start": 5,
+            "end": 7
+          },
+          "excerpt": "cron.schedule('20 3 * * *', async () => {\n    const { rowCount } = await db.query(\"DELETE FROM login_events WHERE created_at < now() - interval '90 days'\");\n    logger.info({ rowCount }, 'login_events pruned');\n});",
+          "evidence": "The code deletes login events older than 90 days, implementing a retention policy.",
+          "confidence": "high",
+          "reasoning": [
+            "This is a scheduled job that runs daily at 3:20 AM.",
+            "It deletes records from the login_events table based on a 90-day cutoff.",
+            "This directly implements a retention/expiry policy for stored user data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:46.034Z",
+          "lastSeen": "2026-10-07T02:45:46.034Z"
+        }
+      ]
+    },
+    "server/middleware/audience.js": {
+      "lastAnalyzedAt": "2026-10-07T02:45:55.520Z",
+      "findings": [
+        {
+          "fingerprint": "3a65a6359fd5a94d",
+          "category": "DO_NOT_TRACK",
+          "lineRange": {
+            "start": 12,
+            "end": 12
+          },
+          "excerpt": "const dnt = req.get('DNT');",
+          "evidence": "The code reads the DNT header from the request.",
+          "confidence": "high",
+          "reasoning": [
+            "Reads the DNT header using req.get('DNT').",
+            "This indicates an intention to check for Do Not Track preferences."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:55.519Z",
+          "lastSeen": "2026-10-07T02:45:55.519Z"
+        },
+        {
+          "fingerprint": "985e2342b221b22a",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 22,
+            "end": 39
+          },
+          "excerpt": "function syncConversions(req, res, next) {\n    const eventName = CONVERSION_EVENTS[req.path];\n    const gpcOptOut = req.get('Sec-GPC') === '1';\n    if (eventName && req.method === 'POST' && req.session?.userId && !gpcOptOut) {\n        const userData = new UserData()\n            .setExternalId(String(req.session.userId))\n            .setClientIpAddress(req.ip)\n            .setClientUserAgent(req.get('User-Agent'));\n        const event = new ServerEvent()\n            .setEventName(eventName)\n            .setEventTime(Math.floor(Date.now() / 1000))\n            .setUserData(userData)\n            .setActionSource('website');\n        new EventRequest(process.env.META_CAPI_TOKEN, PIXEL_ID)\n            .setEvents([event])\n            .execute()\n            .catch(err => logger.warn({ err }, 'conversion sync failed'));\n    }\n    next();",
+          "evidence": "The code reads user data from the session and sets it in the UserData object, which is then used in the ServerEvent.",
+          "confidence": "high",
+          "reasoning": [
+            "The function syncConversions is triggered on a POST request.",
+            "It checks if the userId exists in the session, indicating user-specific data is being accessed.",
+            "User data is collected and used to create a ServerEvent, which is a direct operation involving identifiable user information."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:55.519Z",
+          "lastSeen": "2026-10-07T02:45:55.519Z"
+        },
+        {
+          "fingerprint": "c4c6d5e785d95525",
+          "category": "AI_USAGE",
+          "lineRange": {
+            "start": 22,
+            "end": 38
+          },
+          "excerpt": "function syncConversions(req, res, next) {\n    const eventName = CONVERSION_EVENTS[req.path];\n    const gpcOptOut = req.get('Sec-GPC') === '1';\n    if (eventName && req.method === 'POST' && req.session?.userId && !gpcOptOut) {\n        const userData = new UserData()\n            .setExternalId(String(req.session.userId))\n            .setClientIpAddress(req.ip)\n            .setClientUserAgent(req.get('User-Agent'));\n        const event = new ServerEvent()\n            .setEventName(eventName)\n            .setEventTime(Math.floor(Date.now() / 1000))\n            .setUserData(userData)\n            .setActionSource('website');\n        new EventRequest(process.env.META_CAPI_TOKEN, PIXEL_ID)\n            .setEvents([event])\n            .execute()\n            .catch(err => logger.warn({ err }, 'conversion sync failed'));\n    }\n    next();",
+          "evidence": "The code constructs a user data object and sends it as part of an event request, which is likely processed by an AI/ML system for conversion tracking.",
+          "confidence": "high",
+          "reasoning": [
+            "The function syncConversions processes user data linked to a specific user ID.",
+            "It creates a ServerEvent that includes user data and sends it to an EventRequest, which is likely used for AI/ML analysis.",
+            "This indicates automated decision-making based on user interactions."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:55.519Z",
+          "lastSeen": "2026-10-07T02:45:55.519Z"
+        },
+        {
+          "fingerprint": "346e47e9af545767",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 24,
+            "end": 25
+          },
+          "excerpt": "const gpcOptOut = req.get('Sec-GPC') === '1';\nif (eventName && req.method === 'POST' && req.session?.userId && !gpcOptOut) {",
+          "evidence": "The code checks the 'Sec-GPC' header to determine if the user has opted out of tracking.",
+          "confidence": "high",
+          "reasoning": [
+            "The line 'const gpcOptOut = req.get('Sec-GPC') === '1';' reads a user preference regarding tracking.",
+            "The subsequent conditional checks if the user has opted out before proceeding with the data operation.",
+            "This clearly demonstrates user choice/control over data collection."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:55.519Z",
+          "lastSeen": "2026-10-07T02:45:55.519Z"
+        },
+        {
+          "fingerprint": "0b26162a806f99ca",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 26,
+            "end": 33
+          },
+          "excerpt": "const userData = new UserData()\n            .setExternalId(String(req.session.userId))\n            .setClientIpAddress(req.ip)\n            .setClientUserAgent(req.get('User-Agent'));\n        const event = new ServerEvent()\n            .setEventName(eventName)\n            .setEventTime(Math.floor(Date.now() / 1000))\n            .setUserData(userData)",
+          "evidence": "The code constructs a UserData object that includes user-specific information such as external ID, IP address, and user agent, which are sensitive data points.",
+          "confidence": "medium",
+          "reasoning": [
+            "The UserData object is created with potentially sensitive information.",
+            "The external ID is derived from the session, which may represent a user.",
+            "While the code does not explicitly show encryption or hashing, it does handle user data in a way that suggests a security concern."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:55.519Z",
+          "lastSeen": "2026-10-07T02:45:55.519Z"
+        },
+        {
+          "fingerprint": "18d9fcf02decfd98",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 35,
+            "end": 37
+          },
+          "excerpt": "new EventRequest(process.env.META_CAPI_TOKEN, PIXEL_ID)\n            .setEvents([event])\n            .execute()",
+          "evidence": "The code creates an EventRequest and calls execute(), which likely sends user data to an external service.",
+          "confidence": "high",
+          "reasoning": [
+            "The EventRequest is initialized with a token and pixel ID, indicating it connects to an external service.",
+            "The execute() method suggests that data is being sent out, which qualifies as third-party sharing."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:45:55.519Z",
+          "lastSeen": "2026-10-07T02:45:55.519Z"
+        }
+      ]
+    },
+    "server/routes/account.js": {
+      "lastAnalyzedAt": "2026-10-07T02:46:08.722Z",
+      "findings": [
+        {
+          "fingerprint": "25a4226921310d16",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 14,
+            "end": 21
+          },
+          "excerpt": "router.get('/me', async (req, res) => {\n    const { rows } = await db.query(\n        `SELECT id, email, display_name, birth_date, home_region, phone_obf,\n                marketing_opt_in, partner_sharing, profile_visibility, created_at\n         FROM users WHERE id = $1`,\n        [req.session.userId]\n    );\n    res.json(rows[0]);\n});",
+          "evidence": "The query retrieves user information based on the user ID from the session.",
+          "confidence": "high",
+          "reasoning": [
+            "The code reads user data from the database using the user ID stored in the session.",
+            "This is a direct collection of user information as part of the application's functionality."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:08.722Z",
+          "lastSeen": "2026-10-07T02:46:08.722Z"
+        },
+        {
+          "fingerprint": "fac6d809b198c8c6",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 14,
+            "end": 21
+          },
+          "excerpt": "router.get('/me', async (req, res) => {\n    const { rows } = await db.query(\n        `SELECT id, email, display_name, birth_date, home_region, phone_obf,\n                marketing_opt_in, partner_sharing, profile_visibility, created_at\n         FROM users WHERE id = $1`,\n        [req.session.userId]\n    );\n    res.json(rows[0]);\n});",
+          "evidence": "The GET request retrieves the user's own profile data scoped by req.session.userId.",
+          "confidence": "high",
+          "reasoning": [
+            "The endpoint '/me' is scoped to the authenticated user.",
+            "The query filters by req.session.userId, ensuring the user accesses their own data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:08.722Z",
+          "lastSeen": "2026-10-07T02:46:08.722Z"
+        },
+        {
+          "fingerprint": "4d3db3a15db019d0",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 24,
+            "end": 35
+          },
+          "excerpt": "router.patch('/me', async (req, res) => {\n    const { displayName, homeRegion, phone } = req.body;\n    const phoneObf = phone ? Buffer.from(phone, 'utf8').toString('base64') : null;\n    await db.query(\n        `UPDATE users\n         SET display_name = COALESCE($1, display_name),\n             home_region = COALESCE($2, home_region),\n             phone_obf = COALESCE($3, phone_obf)\n         WHERE id = $4`,\n        [displayName, homeRegion, phoneObf, req.session.userId]\n    );\n    res.status(204).end();\n});",
+          "evidence": "The PATCH request updates the user's own profile data scoped by req.session.userId.",
+          "confidence": "high",
+          "reasoning": [
+            "The endpoint '/me' allows the user to update their own information.",
+            "The update operation is scoped to req.session.userId, ensuring the user modifies their own data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:08.722Z",
+          "lastSeen": "2026-10-07T02:46:08.722Z"
+        },
+        {
+          "fingerprint": "7e9f2a51b79e3340",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 24,
+            "end": 35
+          },
+          "excerpt": "router.patch('/me', async (req, res) => {\n    const { displayName, homeRegion, phone } = req.body;\n    const phoneObf = phone ? Buffer.from(phone, 'utf8').toString('base64') : null;\n    await db.query(\n        `UPDATE users\n         SET display_name = COALESCE($1, display_name),\n             home_region = COALESCE($2, home_region),\n             phone_obf = COALESCE($3, phone_obf)\n         WHERE id = $4`,\n        [displayName, homeRegion, phoneObf, req.session.userId]\n    );\n    res.status(204).end();\n});",
+          "evidence": "The code updates user information based on the data provided in the request body.",
+          "confidence": "high",
+          "reasoning": [
+            "The code modifies user data in the database using values from the request body.",
+            "This involves collecting and using user-supplied information."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:08.722Z",
+          "lastSeen": "2026-10-07T02:46:08.722Z"
+        },
+        {
+          "fingerprint": "4fe16a418685033d",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 26,
+            "end": 26
+          },
+          "excerpt": "const phoneObf = phone ? Buffer.from(phone, 'utf8').toString('base64') : null;",
+          "evidence": "The phone number is obfuscated using Base64 encoding before being stored in the database.",
+          "confidence": "high",
+          "reasoning": [
+            "The code applies a transformation (Base64 encoding) to the phone number before storage.",
+            "This transformation serves as a protective measure for sensitive user data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:08.722Z",
+          "lastSeen": "2026-10-07T02:46:08.722Z"
+        },
+        {
+          "fingerprint": "7e8a646adbfe8edf",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 38,
+            "end": 46
+          },
+          "excerpt": "router.put('/me/privacy', async (req, res) => {\n    const { marketingEmails, partnerSharing, profileVisibility } = req.body;\n    await db.query(\n        `UPDATE users\n         SET marketing_opt_in = COALESCE($1, marketing_opt_in),\n             partner_sharing = COALESCE($2, partner_sharing),\n             profile_visibility = COALESCE($3, profile_visibility)\n         WHERE id = $4`,\n        [marketingEmails, partnerSharing, profileVisibility, req.session.userId]\n    );\n    res.status(204).end();\n});",
+          "evidence": "The code updates user preferences for marketing emails, partner sharing, and profile visibility based on user input.",
+          "confidence": "high",
+          "reasoning": [
+            "The endpoint allows users to update their privacy settings.",
+            "The parameters being updated are user-settable preferences.",
+            "The data operation is gated on user input, fulfilling the choice/control requirement."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:08.722Z",
+          "lastSeen": "2026-10-07T02:46:08.722Z"
+        },
+        {
+          "fingerprint": "f85c7377c83da763",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 38,
+            "end": 48
+          },
+          "excerpt": "router.put('/me/privacy', async (req, res) => {\n    const { marketingEmails, partnerSharing, profileVisibility } = req.body;\n    await db.query(\n        `UPDATE users\n         SET marketing_opt_in = COALESCE($1, marketing_opt_in),\n             partner_sharing = COALESCE($2, partner_sharing),\n             profile_visibility = COALESCE($3, profile_visibility)\n         WHERE id = $4`,\n        [marketingEmails, partnerSharing, profileVisibility, req.session.userId]\n    );\n    res.status(204).end();\n});",
+          "evidence": "The PUT request updates the user's privacy settings scoped by req.session.userId.",
+          "confidence": "high",
+          "reasoning": [
+            "The endpoint '/me/privacy' allows the user to update their own privacy settings.",
+            "The update operation is scoped to req.session.userId, ensuring the user modifies their own data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:08.722Z",
+          "lastSeen": "2026-10-07T02:46:08.722Z"
+        },
+        {
+          "fingerprint": "fd8aa40e10d05d57",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 38,
+            "end": 48
+          },
+          "excerpt": "router.put('/me/privacy', async (req, res) => {\n    const { marketingEmails, partnerSharing, profileVisibility } = req.body;\n    await db.query(\n        `UPDATE users\n         SET marketing_opt_in = COALESCE($1, marketing_opt_in),\n             partner_sharing = COALESCE($2, partner_sharing),\n             profile_visibility = COALESCE($3, profile_visibility)\n         WHERE id = $4`,\n        [marketingEmails, partnerSharing, profileVisibility, req.session.userId]\n    );\n    res.status(204).end();\n});",
+          "evidence": "The code updates user privacy settings based on the request body.",
+          "confidence": "high",
+          "reasoning": [
+            "The code collects user preferences from the request body to update their privacy settings.",
+            "This is a direct use of user-supplied data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:08.722Z",
+          "lastSeen": "2026-10-07T02:46:08.722Z"
+        },
+        {
+          "fingerprint": "3551a727f34056d6",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 51,
+            "end": 75
+          },
+          "excerpt": "router.get('/me/export', async (req, res) => {\n    const userId = req.session.userId;\n    const [profile, activities, comments] = await Promise.all([\n        db.query(\n            `SELECT id, email, display_name, birth_date, home_region, created_at,\n                    marketing_opt_in, partner_sharing, profile_visibility\n             FROM users WHERE id = $1`,\n            [userId]\n        ),\n        db.query(\n            `SELECT id, started_at, distance_m, avg_heart_rate, ST_AsGeoJSON(route) AS route\n             FROM activities WHERE user_id = $1 ORDER BY started_at`,\n            [userId]\n        ),\n        db.query('SELECT id, trail_id, body, status, created_at FROM comments WHERE author_id = $1', [userId]),\n    ]);\n\n    res.attachment('trailmark-export.zip');\n    const archive = archiver('zip');\n    archive.pipe(res);\n    archive.append(JSON.stringify(profile.rows[0], null, 2), { name: 'profile.json' });\n    archive.append(toCsv(activities.rows), { name: 'activities.csv' });\n    archive.append(JSON.stringify(comments.rows, null, 2), { name: 'comments.json' });\n    await archive.finalize();\n});",
+          "evidence": "The GET request exports the user's own data, including profile, activities, and comments, scoped by req.session.userId.",
+          "confidence": "high",
+          "reasoning": [
+            "The endpoint '/me/export' allows the user to download their own data.",
+            "The queries filter by req.session.userId, ensuring the user exports their own records."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:08.722Z",
+          "lastSeen": "2026-10-07T02:46:08.722Z"
+        },
+        {
+          "fingerprint": "7bd13dedc8595ee0",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 51,
+            "end": 59
+          },
+          "excerpt": "router.get('/me/export', async (req, res) => {\n    const userId = req.session.userId;\n    const [profile, activities, comments] = await Promise.all([\n        db.query(\n            `SELECT id, email, display_name, birth_date, home_region, created_at,\n                    marketing_opt_in, partner_sharing, profile_visibility\n             FROM users WHERE id = $1`,\n            [userId]\n        ),\n        db.query(\n            `SELECT id, started_at, distance_m, avg_heart_rate, ST_AsGeoJSON(route) AS route\n             FROM activities WHERE user_id = $1 ORDER BY started_at`,\n            [userId]\n        ),\n        db.query('SELECT id, trail_id, body, status, created_at FROM comments WHERE author_id = $1', [userId]),\n    ]);",
+          "evidence": "The code retrieves user profile, activities, and comments based on the user ID.",
+          "confidence": "high",
+          "reasoning": [
+            "The code collects various user-related data from the database using the user ID.",
+            "This is a clear example of first-party collection of user information."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:08.722Z",
+          "lastSeen": "2026-10-07T02:46:08.722Z"
+        },
+        {
+          "fingerprint": "3849a860a23ac72e",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 77,
+            "end": 84
+          },
+          "excerpt": "router.post('/me/api-tokens', async (req, res) => {\n    const token = crypto.randomBytes(24).toString('hex');\n    await db.query('INSERT INTO api_tokens (user_id, label, token) VALUES ($1, $2, $3)', [\n        req.session.userId,\n        req.body.label || 'default',\n        token,\n    ]);\n    res.status(201).json({ token });\n});",
+          "evidence": "The code inserts a new API token associated with the user ID and label from the request body.",
+          "confidence": "high",
+          "reasoning": [
+            "The code collects the user ID and label from the request to create a new API token.",
+            "This is a direct use of user-supplied data in the application's functionality."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:08.722Z",
+          "lastSeen": "2026-10-07T02:46:08.722Z"
+        },
+        {
+          "fingerprint": "de2ae72a5bcd84fa",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 78,
+            "end": 78
+          },
+          "excerpt": "const token = crypto.randomBytes(24).toString('hex');",
+          "evidence": "A secure random token is generated for API tokens using cryptographic functions.",
+          "confidence": "high",
+          "reasoning": [
+            "The use of crypto.randomBytes ensures that the generated token is secure and unpredictable.",
+            "This is a direct implementation of a protective control for user authentication."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:08.722Z",
+          "lastSeen": "2026-10-07T02:46:08.722Z"
+        },
+        {
+          "fingerprint": "c104085e792def12",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 87,
+            "end": 101
+          },
+          "excerpt": "router.post('/me/close', async (req, res) => {\n    const userId = req.session.userId;\n    await db.query(\n        `UPDATE users\n         SET email = NULL, password_hash = NULL, phone_obf = NULL,\n             display_name = 'Former member', closed_at = now()\n         WHERE id = $1`,\n        [userId]\n    );\n    await cleanupQueue.add(\n        'erase-member-content',\n        { userId },\n        { delay: 30 * 24 * 60 * 60 * 1000, jobId: `erase-${userId}` }\n    );\n    req.session.destroy(() => res.status(202).json({ status: 'closing' }));\n});",
+          "evidence": "The POST request closes the user's account and updates their data, scoped by req.session.userId.",
+          "confidence": "high",
+          "reasoning": [
+            "The endpoint '/me/close' allows the user to close their own account.",
+            "The update operation is scoped to req.session.userId, ensuring the user modifies their own data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:08.722Z",
+          "lastSeen": "2026-10-07T02:46:08.722Z"
+        },
+        {
+          "fingerprint": "bf39895be1702862",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 88,
+            "end": 94
+          },
+          "excerpt": "router.post('/me/close', async (req, res) => {\n    const userId = req.session.userId;\n    await db.query(\n        `UPDATE users\n         SET email = NULL, password_hash = NULL, phone_obf = NULL,\n             display_name = 'Former member', closed_at = now()\n         WHERE id = $1`,\n        [userId]\n    );",
+          "evidence": "The code updates user information to close the account based on the user ID.",
+          "confidence": "medium",
+          "reasoning": [
+            "The code modifies user data in the database to reflect account closure.",
+            "This involves using the user ID to identify the account being modified."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:08.722Z",
+          "lastSeen": "2026-10-07T02:46:08.722Z"
+        },
+        {
+          "fingerprint": "b2ff762ad2a36978",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 91,
+            "end": 91
+          },
+          "excerpt": "SET email = NULL, password_hash = NULL, phone_obf = NULL,",
+          "evidence": "The code sets sensitive fields to NULL when closing an account, effectively removing sensitive data.",
+          "confidence": "medium",
+          "reasoning": [
+            "The operation removes sensitive information from the database, which is a security measure.",
+            "However, the effectiveness of this measure depends on the database's handling of deleted data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:08.722Z",
+          "lastSeen": "2026-10-07T02:46:08.722Z"
+        },
+        {
+          "fingerprint": "16b18e950add3781",
+          "category": "DATA_RETENTION",
+          "lineRange": {
+            "start": 96,
+            "end": 100
+          },
+          "excerpt": "await cleanupQueue.add(\n         'erase-member-content',\n         { userId },\n         { delay: 30 * 24 * 60 * 60 * 1000, jobId: `erase-${userId}` }\n     );",
+          "evidence": "This code schedules a job to erase member content after a delay of 30 days.",
+          "confidence": "high",
+          "reasoning": [
+            "The code uses a queue to schedule a job for erasing member content.",
+            "The delay is set to 30 days, indicating a retention policy for user data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:08.722Z",
+          "lastSeen": "2026-10-07T02:46:08.722Z"
+        }
+      ]
+    },
+    "server/routes/activities.js": {
+      "lastAnalyzedAt": "2026-10-07T02:46:18.945Z",
+      "findings": [
+        {
+          "fingerprint": "2737d1417f68ff6a",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 16,
+            "end": 21
+          },
+          "excerpt": "function sealNote(plaintext) {\n    const key = Buffer.from(process.env.NOTES_KEY_B64, 'base64');\n    const iv = crypto.randomBytes(12);\n    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);\n    const body = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);\n    return Buffer.concat([iv, cipher.getAuthTag(), body]).toString('base64');\n}",
+          "evidence": "The function `sealNote` uses `crypto.createCipheriv` to encrypt plaintext notes before storage.",
+          "confidence": "high",
+          "reasoning": [
+            "The `sealNote` function implements encryption using AES-256-GCM.",
+            "It takes plaintext as input and returns an encrypted base64 string.",
+            "This is a direct technical safeguard over sensitive user data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:18.945Z",
+          "lastSeen": "2026-10-07T02:46:18.945Z"
+        },
+        {
+          "fingerprint": "b37af5a6370e71fe",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 24,
+            "end": 38
+          },
+          "excerpt": "async function shareRouteWithPartner(userId, activityId, track) {\n    if (process.env.ROUTESHARE_ENABLED !== 'true') {\n        return;\n    }\n    await fetch('https://ingest.routeshare.example/v2/tracks', {\n        method: 'POST',\n        headers: { 'content-type': 'application/json', 'x-api-key': process.env.ROUTESHARE_KEY },\n        body: JSON.stringify({\n            athleteRef: `tm-${userId}`,\n            activityRef: activityId,\n            startedAt: track.startedAt,\n            polyline: track.lineString.coordinates,\n        }),\n    });\n}",
+          "evidence": "The code makes a POST request to an external URL (https://ingest.routeshare.example/v2/tracks) with user-related data.",
+          "confidence": "high",
+          "reasoning": [
+            "The function shareRouteWithPartner is defined to share data with a partner service.",
+            "The fetch call sends user-related data (userId, activityId, track details) to an external endpoint.",
+            "The external endpoint is clearly identified as third-party."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:18.945Z",
+          "lastSeen": "2026-10-07T02:46:18.945Z"
+        },
+        {
+          "fingerprint": "d4b652d049d66196",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 25,
+            "end": 27
+          },
+          "excerpt": "if (process.env.ROUTESHARE_ENABLED !== 'true') {\n        return;\n    }",
+          "evidence": "The code checks the environment variable ROUTESHARE_ENABLED to determine if sharing is enabled, which represents user choice/control over sharing functionality.",
+          "confidence": "high",
+          "reasoning": [
+            "The condition checks a user-settable environment variable.",
+            "The subsequent operation (sharing the route) is gated by this check.",
+            "This indicates a mechanism for user control over data sharing."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:18.945Z",
+          "lastSeen": "2026-10-07T02:46:18.945Z"
+        },
+        {
+          "fingerprint": "087aadf43b3cb72d",
+          "category": "AI_USAGE",
+          "lineRange": {
+            "start": 40,
+            "end": 48
+          },
+          "excerpt": "async function refreshReadiness(userId) {\n     const { rows } = await db.query(\n         `SELECT distance_m, avg_heart_rate FROM activities\n          WHERE user_id = $1 AND started_at > now() - interval '28 days'`,\n         [userId]\n     );\n     const load = rows.reduce((sum, a) => sum + (a.distance_m / 1000) * (a.avg_heart_rate / 140), 0);\n     const readiness = Math.max(0, Math.min(100, Math.round(100 - load * 1.5)));\n     await db.query('UPDATE users SET readiness_score = $1 WHERE id = $2', [readiness, userId]);\n }",
+          "evidence": "The calculation of 'readiness' based on user activity data suggests an automated decision-making process affecting the user's readiness score.",
+          "confidence": "medium",
+          "reasoning": [
+            "The function processes user-specific data (distance and heart rate) to compute a readiness score.",
+            "The readiness score is then updated in the database, which could influence user feedback or actions.",
+            "The context of how this score is used downstream is not fully visible, hence medium confidence."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:18.945Z",
+          "lastSeen": "2026-10-07T02:46:18.945Z"
+        },
+        {
+          "fingerprint": "4400772fae110729",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 51,
+            "end": 67
+          },
+          "excerpt": "router.post('/activities', requireAuth, upload.single('gpx'), async (req, res) => {\n    const track = parseGpx(req.file.buffer);\n    const { rows } = await db.query(\n        `INSERT INTO activities (user_id, started_at, distance_m, avg_heart_rate, route, notes_enc)\n         VALUES ($1, $2, $3, $4, ST_GeomFromGeoJSON($5), $6) RETURNING id`,\n        [\n            req.session.userId,\n            track.startedAt,\n            track.distanceMeters,\n            track.avgHeartRate,\n            JSON.stringify(track.lineString),\n            req.body.notes ? sealNote(req.body.notes) : null,\n        ]\n    );\n    await refreshReadiness(req.session.userId);\n    await shareRouteWithPartner(req.session.userId, rows[0].id, track);\n    res.status(201).json({ id: rows[0].id });\n});",
+          "evidence": "The insert operation associates the activity with the requesting user's ID, allowing them to create their own records.",
+          "confidence": "high",
+          "reasoning": [
+            "The route is protected by requireAuth, ensuring the user is authenticated.",
+            "The insert query includes user_id = $1, which is set to req.session.userId, linking the activity to the authenticated user.",
+            "This is a self-service creation operation for the user's own data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:18.945Z",
+          "lastSeen": "2026-10-07T02:46:18.945Z"
+        },
+        {
+          "fingerprint": "536ec7da996ccd4b",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 51,
+            "end": 67
+          },
+          "excerpt": "router.post('/activities', requireAuth, upload.single('gpx'), async (req, res) => {\n    const track = parseGpx(req.file.buffer);\n    const { rows } = await db.query(\n        `INSERT INTO activities (user_id, started_at, distance_m, avg_heart_rate, route, notes_enc)\n         VALUES ($1, $2, $3, $4, ST_GeomFromGeoJSON($5), $6) RETURNING id`,\n        [\n            req.session.userId,\n            track.startedAt,\n            track.distanceMeters,\n            track.avgHeartRate,\n            JSON.stringify(track.lineString),\n            req.body.notes ? sealNote(req.body.notes) : null,\n        ]\n    );\n    await refreshReadiness(req.session.userId);\n    await shareRouteWithPartner(req.session.userId, rows[0].id, track);\n    res.status(201).json({ id: rows[0].id });\n});",
+          "evidence": "The code reads user data from the request (req.session.userId) and processes uploaded GPX file data (req.file.buffer) to derive activity information.",
+          "confidence": "high",
+          "reasoning": [
+            "The route handler reads user ID from the session, which is linked to the user.",
+            "The uploaded GPX file is processed to extract track data, which is user-specific.",
+            "The data is then inserted into the database, indicating first-party collection and use."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:18.945Z",
+          "lastSeen": "2026-10-07T02:46:18.945Z"
+        },
+        {
+          "fingerprint": "d77f6200e19fb9ec",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 54,
+            "end": 62
+          },
+          "excerpt": "INSERT INTO activities (user_id, started_at, distance_m, avg_heart_rate, route, notes_enc)\n         VALUES ($1, $2, $3, $4, ST_GeomFromGeoJSON($5), $6) RETURNING id",
+          "evidence": "The `notes_enc` field is populated with the output of the `sealNote` function, which encrypts user notes.",
+          "confidence": "high",
+          "reasoning": [
+            "The code inserts encrypted notes into the database.",
+            "This ensures that sensitive information is not stored in plaintext.",
+            "The use of `sealNote` indicates a protective measure for user data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:18.945Z",
+          "lastSeen": "2026-10-07T02:46:18.945Z"
+        },
+        {
+          "fingerprint": "0b153af850482886",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 70,
+            "end": 78
+          },
+          "excerpt": "router.delete('/activities/:id', requireAuth, async (req, res) => {\n    const result = await db.query('DELETE FROM activities WHERE id = $1 AND user_id = $2', [\n        req.params.id,\n        req.session.userId,\n    ]);\n    if (result.rowCount === 0) {\n        return res.status(404).end();\n    }\n    res.status(204).end();\n});",
+          "evidence": "The delete operation filters by user_id, ensuring only the requesting user can delete their own activity.",
+          "confidence": "high",
+          "reasoning": [
+            "The route is protected by requireAuth, ensuring the user is authenticated.",
+            "The delete query checks that the activity belongs to the requesting user by using user_id = $2.",
+            "This is a self-service deletion operation for the user's own data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:18.945Z",
+          "lastSeen": "2026-10-07T02:46:18.945Z"
+        },
+        {
+          "fingerprint": "fe7a697ddc234325",
+          "category": "DATA_RETENTION",
+          "lineRange": {
+            "start": 70,
+            "end": 78
+          },
+          "excerpt": "router.delete('/activities/:id', requireAuth, async (req, res) => {\n    const result = await db.query('DELETE FROM activities WHERE id = $1 AND user_id = $2', [\n        req.params.id,\n        req.session.userId,\n    ]);\n    if (result.rowCount === 0) {\n        return res.status(404).end();\n    }\n    res.status(204).end();\n});",
+          "evidence": "This code deletes activity records from the database based on the provided ID and user ID.",
+          "confidence": "high",
+          "reasoning": [
+            "The DELETE operation is explicitly removing records from the 'activities' table.",
+            "This indicates a retention policy where records are purged upon user request."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:18.945Z",
+          "lastSeen": "2026-10-07T02:46:18.945Z"
+        }
+      ]
+    },
+    "server/routes/auth.js": {
+      "lastAnalyzedAt": "2026-10-07T02:46:24.442Z",
+      "findings": [
+        {
+          "fingerprint": "8ebd6e8600156b3f",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 20,
+            "end": 20
+          },
+          "excerpt": "const { email, password, displayName, birthDate } = req.body;",
+          "evidence": "This line reads user-supplied data from the request body.",
+          "confidence": "high",
+          "reasoning": [
+            "The code accesses 'req.body' to retrieve user input.",
+            "This input includes identifiable user information such as email, password, display name, and birth date."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:24.441Z",
+          "lastSeen": "2026-10-07T02:46:24.441Z"
+        },
+        {
+          "fingerprint": "beaeaf1579375043",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 21,
+            "end": 21
+          },
+          "excerpt": "const passwordHash = await bcrypt.hash(password, 12);",
+          "evidence": "The bcrypt.hash function is called to hash the password before it is stored.",
+          "confidence": "high",
+          "reasoning": [
+            "The bcrypt.hash function is a cryptographic hashing call applied to the password.",
+            "The hashed password is intended for storage, providing a safeguard over sensitive user data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:24.441Z",
+          "lastSeen": "2026-10-07T02:46:24.441Z"
+        },
+        {
+          "fingerprint": "beaa589fadd84512",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 32,
+            "end": 32
+          },
+          "excerpt": "req.ip",
+          "evidence": "This line accesses the user's IP address from the request.",
+          "confidence": "high",
+          "reasoning": [
+            "The code retrieves the IP address associated with the user's request.",
+            "This is a direct collection of user-related data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:24.441Z",
+          "lastSeen": "2026-10-07T02:46:24.441Z"
+        },
+        {
+          "fingerprint": "17bdece3dc82a185",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 33,
+            "end": 33
+          },
+          "excerpt": "req.get('User-Agent')",
+          "evidence": "This line retrieves the User-Agent string from the request.",
+          "confidence": "high",
+          "reasoning": [
+            "The code accesses the User-Agent header, which provides information about the user's device and browser.",
+            "This is a collection of data that can be linked to the user."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:24.441Z",
+          "lastSeen": "2026-10-07T02:46:24.441Z"
+        }
+      ]
+    },
+    "server/routes/billing.js": {
+      "lastAnalyzedAt": "2026-10-07T02:46:32.143Z",
+      "findings": [
+        {
+          "fingerprint": "386a282a6ebd3ad7",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 12,
+            "end": 16
+          },
+          "excerpt": "event = stripe.webhooks.constructEvent(\n             req.body,\n             req.get('Stripe-Signature'),\n             process.env.STRIPE_WEBHOOK_SECRET\n         );",
+          "evidence": "The call to `stripe.webhooks.constructEvent` processes incoming webhook data from Stripe, which is an external service.",
+          "confidence": "high",
+          "reasoning": [
+            "The `stripe.webhooks.constructEvent` method is invoked, indicating interaction with the Stripe API.",
+            "The method processes `req.body`, which contains user-related data from the webhook.",
+            "Stripe is an external vendor, thus this constitutes third-party sharing."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:32.143Z",
+          "lastSeen": "2026-10-07T02:46:32.143Z"
+        },
+        {
+          "fingerprint": "be4e08a5396a804c",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 12,
+            "end": 16
+          },
+          "excerpt": "event = stripe.webhooks.constructEvent(\n            req.body,\n            req.get('Stripe-Signature'),\n            process.env.STRIPE_WEBHOOK_SECRET\n        );",
+          "evidence": "The call to `stripe.webhooks.constructEvent` uses the Stripe-Signature header and a webhook secret to validate the incoming webhook request.",
+          "confidence": "high",
+          "reasoning": [
+            "The `constructEvent` method is a security measure that verifies the authenticity of the webhook event.",
+            "It ensures that the event is from Stripe and has not been tampered with."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:32.143Z",
+          "lastSeen": "2026-10-07T02:46:32.143Z"
+        },
+        {
+          "fingerprint": "36679dc75b26062b",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 24,
+            "end": 24
+          },
+          "excerpt": "            userId: Number(invoice.metadata.userId),",
+          "evidence": "The code reads the userId from the invoice metadata, which is linked to a specific user.",
+          "confidence": "high",
+          "reasoning": [
+            "The line accesses 'invoice.metadata.userId', which is user-specific data.",
+            "This data is being utilized within the application's logic to append to the ledger."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:32.143Z",
+          "lastSeen": "2026-10-07T02:46:32.143Z"
+        },
+        {
+          "fingerprint": "8490ed1e3155969f",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 26,
+            "end": 26
+          },
+          "excerpt": "            amount: invoice.amount_paid,",
+          "evidence": "The code accesses the amount_paid from the invoice, which is related to a specific transaction for a user.",
+          "confidence": "high",
+          "reasoning": [
+            "The line retrieves 'invoice.amount_paid', which is a financial detail tied to a user transaction.",
+            "This value is being used in the context of the application's billing logic."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:32.143Z",
+          "lastSeen": "2026-10-07T02:46:32.143Z"
+        },
+        {
+          "fingerprint": "d0b7febc51eba371",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 27,
+            "end": 27
+          },
+          "excerpt": "            currency: invoice.currency,",
+          "evidence": "The code accesses the currency from the invoice, which is part of the user's transaction details.",
+          "confidence": "high",
+          "reasoning": [
+            "The line retrieves 'invoice.currency', which is associated with a specific user's transaction.",
+            "This data is necessary for processing the billing information."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:32.143Z",
+          "lastSeen": "2026-10-07T02:46:32.143Z"
+        },
+        {
+          "fingerprint": "6a71fbde706ea031",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 28,
+            "end": 28
+          },
+          "excerpt": "            paidAt: new Date(invoice.status_transitions.paid_at * 1000),",
+          "evidence": "The code accesses the paid_at timestamp from the invoice, which indicates when the user's invoice was paid.",
+          "confidence": "high",
+          "reasoning": [
+            "The line retrieves 'invoice.status_transitions.paid_at', which is a timestamp related to a user's transaction.",
+            "This information is used to log the payment time in the application's ledger."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:32.143Z",
+          "lastSeen": "2026-10-07T02:46:32.143Z"
+        }
+      ]
+    },
+    "server/routes/community.js": {
+      "lastAnalyzedAt": "2026-10-07T02:46:41.139Z",
+      "findings": [
+        {
+          "fingerprint": "ccfe7d8924f3c46b",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 20,
+            "end": 20
+          },
+          "excerpt": "router.post('/trails/:trailId/comments', requireAuth, async (req, res) => {",
+          "evidence": "The use of 'requireAuth' ensures that only authenticated users can post comments, providing an access control mechanism.",
+          "confidence": "high",
+          "reasoning": [
+            "The route is protected by 'requireAuth', which checks the user's authentication status.",
+            "This prevents unauthorized access to the comment posting functionality."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:41.138Z",
+          "lastSeen": "2026-10-07T02:46:41.138Z"
+        },
+        {
+          "fingerprint": "fcf7f1aceb43bd53",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 20,
+            "end": 35
+          },
+          "excerpt": "router.post('/trails/:trailId/comments', requireAuth, async (req, res) => {\n    const text = req.body.text;\n    const { rows } = await db.query(\n        'INSERT INTO comments (trail_id, author_id, body, status) VALUES ($1, $2, $3, $4) RETURNING id',\n        [req.params.trailId, req.session.userId, text, 'visible']\n    );\n    const commentId = rows[0].id;\n\n    const moderation = await openai.moderations.create({ model: 'omni-moderation-latest', input: text });\n    if (moderation.results[0].flagged) {\n        await db.query(\"UPDATE comments SET status = 'hidden', hidden_reason = 'auto' WHERE id = $1\", [\n            commentId,\n        ]);\n    }\n\n    res.status(201).json({ id: commentId });\n});",
+          "evidence": "The POST operation allows an authenticated user to create a comment associated with their user ID.",
+          "confidence": "high",
+          "reasoning": [
+            "The route is protected by requireAuth, ensuring only authenticated users can access it.",
+            "The comment is inserted with the author's ID being the current user's ID (req.session.userId).",
+            "This is a self-service operation where users can add comments to trails."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:41.138Z",
+          "lastSeen": "2026-10-07T02:46:41.138Z"
+        },
+        {
+          "fingerprint": "91e646d9fba34d8b",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 21,
+            "end": 21
+          },
+          "excerpt": "const text = req.body.text;",
+          "evidence": "The code reads user-supplied text from the request body.",
+          "confidence": "high",
+          "reasoning": [
+            "The line retrieves data from the request body, which is user input.",
+            "This data is directly linked to the user making the request."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:41.138Z",
+          "lastSeen": "2026-10-07T02:46:41.138Z"
+        },
+        {
+          "fingerprint": "7ed38d64a822fac9",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 24,
+            "end": 24
+          },
+          "excerpt": "[req.params.trailId, req.session.userId, text, 'visible']",
+          "evidence": "The code uses user-related data (session user ID) in a database operation.",
+          "confidence": "high",
+          "reasoning": [
+            "The session user ID is directly linked to the user making the request.",
+            "This data is used in an insert operation, indicating collection for use."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:41.138Z",
+          "lastSeen": "2026-10-07T02:46:41.138Z"
+        },
+        {
+          "fingerprint": "09c3806edc9d0596",
+          "category": "AI_USAGE",
+          "lineRange": {
+            "start": 28,
+            "end": 30
+          },
+          "excerpt": "const moderation = await openai.moderations.create({ model: 'omni-moderation-latest', input: text });\nif (moderation.results[0].flagged) {\n    await db.query(\"UPDATE comments SET status = 'hidden', hidden_reason = 'auto' WHERE id = $1\", [\n        commentId,\n    ]);\n}",
+          "evidence": "The call to `openai.moderations.create` sends user-generated content (`text`) to an external AI API for moderation, and the output directly influences the decision to hide the comment.",
+          "confidence": "high",
+          "reasoning": [
+            "The moderation function sends user input to an AI model for processing.",
+            "The model's output (`moderation.results[0].flagged`) directly drives an automated action (hiding the comment) without human review shown in this span."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:41.138Z",
+          "lastSeen": "2026-10-07T02:46:41.138Z"
+        },
+        {
+          "fingerprint": "36eb7b56b001b01c",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 28,
+            "end": 28
+          },
+          "excerpt": "const moderation = await openai.moderations.create({ model: 'omni-moderation-latest', input: text });",
+          "evidence": "The code sends user-provided text to an external service for moderation.",
+          "confidence": "medium",
+          "reasoning": [
+            "The input text is derived from user data and sent for processing.",
+            "While this involves an external service, the input is still user-generated."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:41.138Z",
+          "lastSeen": "2026-10-07T02:46:41.138Z"
+        },
+        {
+          "fingerprint": "5409684c3678b345",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 28,
+            "end": 28
+          },
+          "excerpt": "const moderation = await openai.moderations.create({ model: 'omni-moderation-latest', input: text });",
+          "evidence": "The call to `openai.moderations.create(...)` invokes a method from the OpenAI SDK, passing user-generated input data.",
+          "confidence": "high",
+          "reasoning": [
+            "The code calls into an imported third-party SDK (OpenAI).",
+            "The method `create` is invoked with `input: text`, which is user-generated data.",
+            "OpenAI is an external vendor, indicating third-party data sharing."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:41.138Z",
+          "lastSeen": "2026-10-07T02:46:41.138Z"
+        },
+        {
+          "fingerprint": "833e68bb0baefe76",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 28,
+            "end": 28
+          },
+          "excerpt": "const moderation = await openai.moderations.create({ model: 'omni-moderation-latest', input: text });",
+          "evidence": "The moderation process checks the content of the comment for safety before it is stored, acting as a safeguard against harmful content.",
+          "confidence": "medium",
+          "reasoning": [
+            "The moderation call is intended to filter out inappropriate content before it is persisted.",
+            "However, the effectiveness of this safeguard depends on the implementation of the moderation model."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:41.138Z",
+          "lastSeen": "2026-10-07T02:46:41.138Z"
+        },
+        {
+          "fingerprint": "3b6f07ff7e43ea36",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 38,
+            "end": 51
+          },
+          "excerpt": "router.get('/members/:id', async (req, res) => {\n    const { rows } = await db.query(\n        `SELECT id, display_name, avatar_url, home_region, readiness_score, profile_visibility\n         FROM users WHERE id = $1 AND closed_at IS NULL`,\n        [req.params.id]\n    );\n    const member = rows[0];\n    if (!member) {\n        return res.status(404).end();\n    }\n    if (member.profile_visibility === 'private' && req.session.userId !== member.id) {\n        return res.json({ id: member.id, display_name: member.display_name });\n    }\n    res.json(member);\n});",
+          "evidence": "The GET operation retrieves user information, respecting the profile visibility settings.",
+          "confidence": "medium",
+          "reasoning": [
+            "The route fetches user data based on the user ID provided in the request.",
+            "It checks the profile visibility and only returns limited information if the profile is private and the requester is not the user.",
+            "This indicates a mechanism for users to access their own data while restricting access to others."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:41.138Z",
+          "lastSeen": "2026-10-07T02:46:41.138Z"
+        },
+        {
+          "fingerprint": "34240bed3abf535c",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 42,
+            "end": 42
+          },
+          "excerpt": "[req.params.id]",
+          "evidence": "The code retrieves user-related data based on a user ID from the request parameters.",
+          "confidence": "high",
+          "reasoning": [
+            "The user ID is directly linked to a specific user and is used to query the database.",
+            "This indicates collection of user-related information."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:41.138Z",
+          "lastSeen": "2026-10-07T02:46:41.138Z"
+        },
+        {
+          "fingerprint": "f6d8ecfb8cf7eedf",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 48,
+            "end": 50
+          },
+          "excerpt": "if (member.profile_visibility === 'private' && req.session.userId !== member.id) {\n        return res.json({ id: member.id, display_name: member.display_name });\n    }",
+          "evidence": "The code checks the user's profile visibility setting before deciding whether to return the user's display name.",
+          "confidence": "high",
+          "reasoning": [
+            "The condition checks the 'profile_visibility' field, which represents user choice regarding visibility.",
+            "The data operation (returning user information) is gated on this user-settable preference."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:41.138Z",
+          "lastSeen": "2026-10-07T02:46:41.138Z"
+        }
+      ]
+    },
+    "server/services/mailer.js": {
+      "lastAnalyzedAt": "2026-10-07T02:46:48.767Z",
+      "findings": [
+        {
+          "fingerprint": "37b152352e934ea5",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 10,
+            "end": 20
+          },
+          "excerpt": "async function sendTrailDigest(member, trails) {\n    if (!member.marketing_opt_in) {\n        return;\n    }\n    await sgMail.send({\n        to: member.email,\n        from: FROM_HELLO,\n        templateId: DIGEST_TEMPLATE,\n        dynamicTemplateData: { name: member.display_name, region: member.home_region, trails },\n    });\n}",
+          "evidence": "The code accesses 'member.email', 'member.display_name', and 'member.home_region', which are user-specific data points.",
+          "confidence": "high",
+          "reasoning": [
+            "The function 'sendTrailDigest' takes 'member' as an argument, which is expected to contain user-specific information.",
+            "The 'to' field in the 'sgMail.send' method uses 'member.email', indicating the collection of the user's email address.",
+            "The 'dynamicTemplateData' includes 'member.display_name' and 'member.home_region', which are also user-specific data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:48.766Z",
+          "lastSeen": "2026-10-07T02:46:48.766Z"
+        },
+        {
+          "fingerprint": "bc1eeec0df6bf3bb",
+          "category": "USER_CHOICE_CONTROL",
+          "lineRange": {
+            "start": 11,
+            "end": 13
+          },
+          "excerpt": "if (!member.marketing_opt_in) {\n        return;\n    }",
+          "evidence": "The conditional check on 'member.marketing_opt_in' determines whether the email is sent based on user consent.",
+          "confidence": "high",
+          "reasoning": [
+            "The code checks the 'marketing_opt_in' flag, which represents user consent.",
+            "The email sending operation is gated by this check, meaning it only proceeds if the user has opted in."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:48.766Z",
+          "lastSeen": "2026-10-07T02:46:48.766Z"
+        },
+        {
+          "fingerprint": "f1fbb0bbd5354636",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 14,
+            "end": 19
+          },
+          "excerpt": "await sgMail.send({\n        to: member.email,\n        from: FROM_HELLO,\n        templateId: DIGEST_TEMPLATE,\n        dynamicTemplateData: { name: member.display_name, region: member.home_region, trails },\n    });",
+          "evidence": "The call to `sgMail.send` sends user data (email, display_name, home_region) to SendGrid, an external email service.",
+          "confidence": "high",
+          "reasoning": [
+            "The `sgMail.send` method is part of the SendGrid library, which is a third-party service.",
+            "User data such as `member.email`, `member.display_name`, and `member.home_region` are included in the payload.",
+            "SendGrid is an external vendor, indicating third-party sharing."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:48.766Z",
+          "lastSeen": "2026-10-07T02:46:48.766Z"
+        },
+        {
+          "fingerprint": "433597af333a2c4f",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 22,
+            "end": 34
+          },
+          "excerpt": "async function sendReceipt(member, invoice) {\n    await sgMail.send({\n        to: member.email,\n        from: FROM_BILLING,\n        templateId: RECEIPT_TEMPLATE,\n        dynamicTemplateData: {\n            name: member.display_name,\n            amount: (invoice.amount_paid / 100).toFixed(2),\n            currency: invoice.currency.toUpperCase(),\n            periodEnd: new Date(invoice.period_end * 1000).toDateString(),\n        },\n    });\n}",
+          "evidence": "The code accesses 'member.email' and 'member.display_name', which are user-specific data points.",
+          "confidence": "high",
+          "reasoning": [
+            "The function 'sendReceipt' also takes 'member' as an argument, which contains user-specific information.",
+            "The 'to' field in the 'sgMail.send' method uses 'member.email', indicating the collection of the user's email address.",
+            "The 'dynamicTemplateData' includes 'member.display_name', which is user-specific data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:48.766Z",
+          "lastSeen": "2026-10-07T02:46:48.766Z"
+        },
+        {
+          "fingerprint": "27620054518378f6",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 23,
+            "end": 33
+          },
+          "excerpt": "await sgMail.send({\n        to: member.email,\n        from: FROM_BILLING,\n        templateId: RECEIPT_TEMPLATE,\n        dynamicTemplateData: {\n            name: member.display_name,\n            amount: (invoice.amount_paid / 100).toFixed(2),\n            currency: invoice.currency.toUpperCase(),\n            periodEnd: new Date(invoice.period_end * 1000).toDateString(),\n        },\n    });",
+          "evidence": "The call to `sgMail.send` sends user data (email, display_name, amount, currency) to SendGrid, an external email service.",
+          "confidence": "high",
+          "reasoning": [
+            "The `sgMail.send` method is part of the SendGrid library, which is a third-party service.",
+            "User data such as `member.email`, `member.display_name`, `invoice.amount_paid`, and `invoice.currency` are included in the payload.",
+            "SendGrid is an external vendor, indicating third-party sharing."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:46:48.766Z",
+          "lastSeen": "2026-10-07T02:46:48.766Z"
+        }
+      ]
+    },
+    "worker/coach.py": {
+      "lastAnalyzedAt": "2026-10-07T02:47:06.462Z",
+      "findings": [
+        {
+          "fingerprint": "6e44676c8c7f33fb",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 20,
+            "end": 25
+          },
+          "excerpt": "db.execute(\n        \"INSERT INTO coach_feedback (user_id, transcript, rating, include_in_training, created_at) \"\n        \"VALUES (%s, %s, %s, %s, %s)\",\n        (user_id, json.dumps(transcript), rating, True, datetime.now(timezone.utc)),\n    )",
+          "evidence": "The code inserts user feedback into a database, which involves handling user data.",
+          "confidence": "medium",
+          "reasoning": [
+            "The operation involves inserting user data into a database.",
+            "The user ID and transcript are being stored, which are sensitive.",
+            "However, the security of the database connection and the execution context is not visible."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:06.461Z",
+          "lastSeen": "2026-10-07T02:47:06.461Z"
+        },
+        {
+          "fingerprint": "f207e252b150ea61",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 20,
+            "end": 25
+          },
+          "excerpt": "def record_feedback(user_id, transcript, rating):\n    db.execute(\n        \"INSERT INTO coach_feedback (user_id, transcript, rating, include_in_training, created_at) \"\n        \"VALUES (%s, %s, %s, %s, %s)\",\n        (user_id, json.dumps(transcript), rating, True, datetime.now(timezone.utc)),\n    )",
+          "evidence": "The function records user feedback by inserting user_id, transcript, and rating into the database.",
+          "confidence": "high",
+          "reasoning": [
+            "The function takes user_id, transcript, and rating as parameters.",
+            "It directly inserts these values into the coach_feedback table, which is linked to identifiable user data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:06.461Z",
+          "lastSeen": "2026-10-07T02:47:06.461Z"
+        },
+        {
+          "fingerprint": "ca031ba0203f354b",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 41,
+            "end": 71
+          },
+          "excerpt": "def build_training_plan(user_id):\n    member = db.fetch_one(\n        \"SELECT display_name, birth_date, readiness_score FROM users WHERE id = %s\",\n        (user_id,),\n    )\n    recent = db.fetch_all(\n        \"SELECT started_at, distance_m, avg_heart_rate FROM activities \"\n        \"WHERE user_id = %s ORDER BY started_at DESC LIMIT 20\",\n        (user_id,),\n    )\n    history = \"\\n\".join(\n        f\"- {a['started_at']:%Y-%m-%d}: {a['distance_m'] / 1000:.1f} km, avg HR {a['avg_heart_rate']}\"\n        for a in recent\n    )\n    response = client.messages.create(\n        model=COACH_MODEL,\n        max_tokens=1500,\n        messages=[\n            {\n                \"role\": \"user\",\n                \"content\": (\n                    f\"Write a four-week hiking plan for {member['display_name']} \"\n                    f\"(born {member['birth_date']}, readiness {member['readiness_score']}/100).\n\"\n                    f\"Recent activities:\\n{history}\"\n                ),\n            }\n        ],\n    )\n    plan = response.content[0].text\n    db.execute(\"INSERT INTO training_plans (user_id, body) VALUES (%s, %s)\", (user_id, plan))\n    return plan",
+          "evidence": "The function fetches user-specific data and creates a training plan scoped to the user's identifier.",
+          "confidence": "high",
+          "reasoning": [
+            "The function is named 'build_training_plan' and takes 'user_id' as a parameter.",
+            "It retrieves user-specific information from the database using 'user_id'.",
+            "The operation is self-service, allowing users to generate a training plan based on their own data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:06.461Z",
+          "lastSeen": "2026-10-07T02:47:06.461Z"
+        },
+        {
+          "fingerprint": "fcceaa9c42047bdb",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 41,
+            "end": 71
+          },
+          "excerpt": "def build_training_plan(user_id):\n    member = db.fetch_one(\n        \"SELECT display_name, birth_date, readiness_score FROM users WHERE id = %s\",\n        (user_id,),\n    )\n    recent = db.fetch_all(\n        \"SELECT started_at, distance_m, avg_heart_rate FROM activities \"\n        \"WHERE user_id = %s ORDER BY started_at DESC LIMIT 20\",\n        (user_id,),\n    )\n    history = \"\\n\".join(\n        f\"- {a['started_at']:%Y-%m-%d}: {a['distance_m'] / 1000:.1f} km, avg HR {a['avg_heart_rate']}\"\n        for a in recent\n    )\n    response = client.messages.create(\n        model=COACH_MODEL,\n        max_tokens=1500,\n        messages=[\n            {\n                \"role\": \"user\",\n                \"content\": (\n                    f\"Write a four-week hiking plan for {member['display_name']} \"\n                    f\"(born {member['birth_date']}, readiness {member['readiness_score']}/100).\nRecent activities:\\n{history}\"\n                ),\n            }\n        ],\n    )\n    plan = response.content[0].text\n    db.execute(\"INSERT INTO training_plans (user_id, body) VALUES (%s, %s)\", (user_id, plan))\n    return plan",
+          "evidence": "The function retrieves user information and recent activity data, which are then used to build a personalized training plan.",
+          "confidence": "high",
+          "reasoning": [
+            "The function fetches user details and recent activities based on user_id.",
+            "This involves reading identifiable user data and using it to generate a training plan."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:06.461Z",
+          "lastSeen": "2026-10-07T02:47:06.461Z"
+        },
+        {
+          "fingerprint": "26f78aed05f8f0e1",
+          "category": "AI_USAGE",
+          "lineRange": {
+            "start": 55,
+            "end": 69
+          },
+          "excerpt": "response = client.messages.create(\n         model=COACH_MODEL,\n         max_tokens=1500,\n         messages=[\n             {\n                 \"role\": \"user\",\n                 \"content\": (\n                     f\"Write a four-week hiking plan for {member['display_name']} \\\n                     (born {member['birth_date']}, readiness {member['readiness_score']}/100).\n                     Recent activities:\n{history}\"\n                 ),\n             }\n         ],\n     )\n     plan = response.content[0].text",
+          "evidence": "The code sends user-specific data (user_id, member details, and recent activities) to an AI model for generating a personalized training plan.",
+          "confidence": "high",
+          "reasoning": [
+            "The call to `client.messages.create` sends user-linked data to an AI model for generating a specific output.",
+            "The model's output is used to create a training plan for the user, which directly affects the user's experience."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:06.461Z",
+          "lastSeen": "2026-10-07T02:47:06.461Z"
+        },
+        {
+          "fingerprint": "047b6c5e0986e7f8",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 70,
+            "end": 70
+          },
+          "excerpt": "db.execute(\"INSERT INTO training_plans (user_id, body) VALUES (%s, %s)\", (user_id, plan))",
+          "evidence": "The code inserts a training plan into a database, which involves handling user data.",
+          "confidence": "medium",
+          "reasoning": [
+            "The operation involves inserting user data into a database.",
+            "The user ID and training plan body are being stored, which are sensitive.",
+            "However, the security of the database connection and the execution context is not visible."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:06.461Z",
+          "lastSeen": "2026-10-07T02:47:06.461Z"
+        },
+        {
+          "fingerprint": "5c43be87fcdaed47",
+          "category": "AI_USAGE",
+          "lineRange": {
+            "start": 80,
+            "end": 90
+          },
+          "excerpt": "response = client.messages.create(\n         model=COACH_MODEL,\n         max_tokens=200,\n         messages=[\n             {\n                 \"role\": \"user\",\n                 \"content\": f\"Summarize this week's platform totals in two sentences: {dict(stats)}\",\n             }\n         ],\n     )",
+          "evidence": "The code sends aggregated user data to an AI model to generate a summary, which may influence operational decisions.",
+          "confidence": "medium",
+          "reasoning": [
+            "The AI model processes data that includes user activity statistics, which could be linked back to individual users.",
+            "The output of this model call is used to inform operational decisions, although it is less direct than the previous example."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:06.461Z",
+          "lastSeen": "2026-10-07T02:47:06.461Z"
+        },
+        {
+          "fingerprint": "c46123b2588b5929",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 90,
+            "end": 90
+          },
+          "excerpt": "requests.post(OPS_WEBHOOK, json={\"text\": response.content[0].text}, timeout=10)",
+          "evidence": "The code makes an outbound HTTP POST request to a webhook URL, which is likely external.",
+          "confidence": "high",
+          "reasoning": [
+            "The line uses 'requests.post' to send data.",
+            "The target URL is defined by 'OPS_WEBHOOK', which is an environment variable.",
+            "This indicates that the data is being sent to an external service."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:06.461Z",
+          "lastSeen": "2026-10-07T02:47:06.461Z"
+        }
+      ]
+    },
+    "worker/screening.py": {
+      "lastAnalyzedAt": "2026-10-07T02:47:14.506Z",
+      "findings": [
+        {
+          "fingerprint": "ef080e8443c336b3",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 17,
+            "end": 21
+          },
+          "excerpt": "s = db.fetch_one(\n        \"SELECT ip_country, card_country, email_domain_age_days, signups_from_device_24h, \"\n        \"minutes_to_first_payment FROM signup_signals WHERE user_id = %s\",\n        (user_id,),\n    )",
+          "evidence": "The code fetches user-related data from the database using the user_id.",
+          "confidence": "high",
+          "reasoning": [
+            "The function fetches data from the database based on the user_id.",
+            "This data includes user-specific information such as ip_country and email_domain_age_days.",
+            "The operation is directly related to the application's logic and involves user data."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:14.506Z",
+          "lastSeen": "2026-10-07T02:47:14.506Z"
+        },
+        {
+          "fingerprint": "c3ea8b237ebb13da",
+          "category": "AI_USAGE",
+          "lineRange": {
+            "start": 30,
+            "end": 30
+          },
+          "excerpt": "_model.predict_proba(features)[0][1]",
+          "evidence": "The call to `_model.predict_proba(features)` uses user data to generate a score that influences the user's account status.",
+          "confidence": "high",
+          "reasoning": [
+            "The function `screen_signup` processes user-linked data to create a feature set.",
+            "The model's output (`score`) is used to make automated decisions about the user's account status without human review."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:14.506Z",
+          "lastSeen": "2026-10-07T02:47:14.506Z"
+        },
+        {
+          "fingerprint": "54e5700ac8c88c9a",
+          "category": "DATA_SECURITY",
+          "lineRange": {
+            "start": 33,
+            "end": 36
+          },
+          "excerpt": "        db.execute(\n            \"UPDATE users SET status = 'locked', locked_reason = 'signup_risk' WHERE id = %s\",\n            (user_id,)\n        )",
+          "evidence": "The code updates the user status to 'locked' based on a score threshold, which is a protective measure against potential signup risks.",
+          "confidence": "medium",
+          "reasoning": [
+            "The update operation modifies user status based on a risk assessment.",
+            "This action serves as a safeguard against unauthorized access or misuse of accounts."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:14.506Z",
+          "lastSeen": "2026-10-07T02:47:14.506Z"
+        },
+        {
+          "fingerprint": "af807f54d8415bd6",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 34,
+            "end": 36
+          },
+          "excerpt": "UPDATE users SET status = 'locked', locked_reason = 'signup_risk' WHERE id = %s",
+          "evidence": "The update operation modifies the user's status based on their own user_id.",
+          "confidence": "high",
+          "reasoning": [
+            "The SQL update statement targets the user's own record using their user_id.",
+            "This operation is scoped to the requesting user's identifier, allowing them to edit their own account status."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:14.506Z",
+          "lastSeen": "2026-10-07T02:47:14.506Z"
+        },
+        {
+          "fingerprint": "47b3ea1bda701a67",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 37,
+            "end": 37
+          },
+          "excerpt": "        mailer.send_template(user_id, \"account_locked\")",
+          "evidence": "The call to 'mailer.send_template' suggests that user data (user_id) is being sent to an external mailing service.",
+          "confidence": "medium",
+          "reasoning": [
+            "The function 'mailer.send_template' is likely part of an external service for sending emails.",
+            "The argument 'user_id' is user-linked data being transmitted to this external service."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:14.506Z",
+          "lastSeen": "2026-10-07T02:47:14.506Z"
+        },
+        {
+          "fingerprint": "c1eb519ff0ef2673",
+          "category": "THIRD_PARTY_SHARING_COLLECTION",
+          "lineRange": {
+            "start": 39,
+            "end": 39
+          },
+          "excerpt": "        review_queue.enqueue(\"signup\", user_id=user_id, score=score)",
+          "evidence": "The call to 'review_queue.enqueue' indicates that user data (user_id) is being sent to an external review queue system.",
+          "confidence": "medium",
+          "reasoning": [
+            "The function 'review_queue.enqueue' likely interacts with an external system for processing signups.",
+            "The argument 'user_id' is user-linked data being transmitted to this external system."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:14.506Z",
+          "lastSeen": "2026-10-07T02:47:14.506Z"
+        },
+        {
+          "fingerprint": "25841dcff41b7177",
+          "category": "FIRST_PARTY_COLLECTION_USE",
+          "lineRange": {
+            "start": 44,
+            "end": 47
+          },
+          "excerpt": "return db.fetch_all(\n         \"SELECT user_id FROM signup_signals WHERE screened_at IS NULL ORDER BY created_at LIMIT %s\",\n         (limit,),\n     )",
+          "evidence": "The code retrieves user_ids from the database for users who have not yet been screened.",
+          "confidence": "high",
+          "reasoning": [
+            "The function fetches user_id data from the database.",
+            "This operation is directly related to the application's logic and involves user data.",
+            "The data is used to determine which users need to be screened."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:14.506Z",
+          "lastSeen": "2026-10-07T02:47:14.506Z"
+        },
+        {
+          "fingerprint": "62c2f604f133d6dd",
+          "category": "USER_ACCESS_EDIT_DELETION",
+          "lineRange": {
+            "start": 53,
+            "end": 54
+          },
+          "excerpt": "UPDATE signup_signals SET screened_at = now() WHERE user_id = %s",
+          "evidence": "The update operation marks the screening time for the user's own record.",
+          "confidence": "high",
+          "reasoning": [
+            "The SQL update statement modifies the screened_at field for the user's own record identified by user_id.",
+            "This operation is scoped to the requesting user's identifier, allowing for self-service updates."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:14.506Z",
+          "lastSeen": "2026-10-07T02:47:14.506Z"
+        },
+        {
+          "fingerprint": "957cc5ab28254000",
+          "category": "DATA_RETENTION",
+          "lineRange": {
+            "start": 53,
+            "end": 53
+          },
+          "excerpt": "db.execute(\"UPDATE signup_signals SET screened_at = now() WHERE user_id = %s\", (row[\"user_id\"],))",
+          "evidence": "This line updates the 'screened_at' field to the current time, indicating when the screening occurred.",
+          "confidence": "high",
+          "reasoning": [
+            "This line updates a timestamp field, which implies a retention mechanism for tracking when records were screened.",
+            "The presence of a timestamp field suggests that older records may be purged or archived based on this information."
+          ],
+          "status": "undecided",
+          "firstSeen": "2026-10-07T02:47:14.506Z",
+          "lastSeen": "2026-10-07T02:47:14.506Z"
+        }
+      ]
+    }
+  }
+}

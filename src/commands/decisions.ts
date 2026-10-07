@@ -66,7 +66,9 @@ async function setStatus(args: unknown, status: FindingStatus): Promise<void> {
         });
     } catch (error) {
         console.error('priv-annotate: could not persist decision:', error);
-        vscode.window.showErrorMessage('priv-annotate: could not save that decision. See console for details.');
+        vscode.window.showErrorMessage(
+            'priv-annotate: could not save that decision. See console for details.'
+        );
     }
 }
 

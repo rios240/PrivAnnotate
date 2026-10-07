@@ -1,4 +1,3 @@
 # Manifests written by the extension while running an evaluation.
 trailmark/.privannotate/
 # Scored runs and JSON reports kept locally.
-results/

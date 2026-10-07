@@ -94,7 +94,10 @@ function toFinding(raw: RawFinding, rule: PrivacyRule, ctx: ParseContext): Priva
         return undefined;
     }
     if (end < ctx.rangeStart || start > ctx.rangeEnd) {
-        console.warn(`priv-annotate: [${rule.id}] dropping finding outside the analyzed range`, raw.lineRange);
+        console.warn(
+            `priv-annotate: [${rule.id}] dropping finding outside the analyzed range`,
+            raw.lineRange
+        );
         return undefined;
     }
 
@@ -162,7 +165,10 @@ export function parseCategoryFindings(text: string, rule: PrivacyRule, ctx: Pars
     const findings: PrivacyFinding[] = [];
     for (const entry of parsed) {
         if (!isRawFinding(entry)) {
-            console.warn(`priv-annotate: [${rule.id}] skipping element that does not match the schema:`, entry);
+            console.warn(
+                `priv-annotate: [${rule.id}] skipping element that does not match the schema:`,
+                entry
+            );
             continue;
         }
         const finding = toFinding(entry, rule, ctx);

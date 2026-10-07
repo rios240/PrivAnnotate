@@ -40,7 +40,9 @@ export function registerViewCommands(context: vscode.ExtensionContext) {
             syncViewContext();
             repaintVisibleEditors();
             vscode.window.setStatusBarMessage(
-                isShowingFindings() ? 'PrivAnnotate: showing all findings' : 'PrivAnnotate: hiding all findings',
+                isShowingFindings()
+                    ? 'PrivAnnotate: showing all findings'
+                    : 'PrivAnnotate: hiding all findings',
                 3000
             );
         })
